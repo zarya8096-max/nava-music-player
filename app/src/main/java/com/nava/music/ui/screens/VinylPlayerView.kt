@@ -27,7 +27,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Close
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -446,7 +446,7 @@ private fun VinylControlsColumn(
                 Icon(
                     imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                     contentDescription = "Favorite",
-                    tint = if (isFavorite) Color(0xFFE5486A) else palette.onBackgroundMuted,
+                    tint = if (isFavorite) palette.primary else palette.onBackgroundMuted,
                     modifier = Modifier.size(18.dp)
                 )
             }
@@ -510,7 +510,7 @@ private fun VinylControlsColumn(
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
                     Icon(
-                        imageVector = Icons.Rounded.AutoAwesome,
+                        imageVector = Icons.Rounded.Translate,
                         contentDescription = null,
                         tint = palette.primary,
                         modifier = Modifier.size(16.dp)

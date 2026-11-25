@@ -21,17 +21,17 @@ import kotlin.math.abs
 object DynamicThemeEngine {
 
     /**
-     * Refined editorial fallback seeds (warm, organic, non-slop hues).
+     * Cool, architectural Nordic / Hi-Fi fallback seeds — zero pink, coral, or magenta.
      */
     private val curatedSeeds = listOf(
-        PaletteSeed(Color(0xFFE05A47), Color(0xFFF2A65A), Color(0xFF7B2D4E)), // Terracotta & Amber
-        PaletteSeed(Color(0xFF1E9E89), Color(0xFF38A3D1), Color(0xFF154E5C)), // Deep Aegean Teal
-        PaletteSeed(Color(0xFFD9822B), Color(0xFFE86A58), Color(0xFF6B321A)), // Saffron & Clay
-        PaletteSeed(Color(0xFFD6456B), Color(0xFFF0938B), Color(0xFF5D214A)), // Velvet Rose
-        PaletteSeed(Color(0xFF3B7DD8), Color(0xFFE8845C), Color(0xFF1B3A70)), // Studio Cobalt & Peach
-        PaletteSeed(Color(0xFF2E9E6E), Color(0xFFD4B845), Color(0xFF144D3A)), // Moss & Brass
-        PaletteSeed(Color(0xFFC9603B), Color(0xFFC978B8), Color(0xFF59204E)), // Copper & Plum
-        PaletteSeed(Color(0xFF288FA3), Color(0xFFE5A93C), Color(0xFF174552))  // Petrol & Ochre
+        PaletteSeed(Color(0xFF38BDF8), Color(0xFF81A1C1), Color(0xFF0F2942)), // Glacier Blue & Arctic Slate
+        PaletteSeed(Color(0xFF2DD4BF), Color(0xFF38BDF8), Color(0xFF0F3B42)), // Nordic Fjord Teal
+        PaletteSeed(Color(0xFF60A5FA), Color(0xFF93C5FD), Color(0xFF172B4D)), // Deep Sapphire Frost
+        PaletteSeed(Color(0xFF34D399), Color(0xFF67E8F9), Color(0xFF0E3833)), // Pine Mint & Ice
+        PaletteSeed(Color(0xFF7DD3FC), Color(0xFF94A3B8), Color(0xFF1E293B)), // Mist Cyan & Titanium
+        PaletteSeed(Color(0xFF22D3EE), Color(0xFF60A5FA), Color(0xFF103344)), // Polar Cyan & Steel
+        PaletteSeed(Color(0xFF4ADE80), Color(0xFF2DD4BF), Color(0xFF11352C)), // Boreal Emerald
+        PaletteSeed(Color(0xFF94A3B8), Color(0xFF38BDF8), Color(0xFF1B2432))  // Brushed Silver & Sky
     )
 
     val defaultSeed: PaletteSeed = curatedSeeds[0]
@@ -42,8 +42,9 @@ object DynamicThemeEngine {
     }
 
     /**
-     * Extracts a lightweight PaletteSeed using the shared singleton Coil ImageLoader
-     * at 96x96 resolution (minimal RAM footprint, zero leaked ImageLoaders).
+     * Extracts album-art colors at 96x96 via singleton Coil loader (minimal RAM).
+     * Filters out pink/magenta hues in favor of cool complementary swatches from the cover
+     * (or falls back to cool architectural tones if the cover is overwhelmingly pink).
      */
     suspend fun extractSeedFromArtwork(
         context: Context,
@@ -51,39 +52,42 @@ object DynamicThemeEngine {
         fallbackSeed: String
     ): PaletteSeed = withContext(Dispatchers.IO) {
         val bitmap = loadSmallBitmap(context, artUri) ?: return@withContext fallbackSeedForKey(fallbackSeed)
-        val palette = Palette.from(bitmap).maximumColorCount(12).generate()
+        val palette = Palette.from(bitmap).maximumColorCount(16).generate()
 
-        val vibrant = palette.vibrantSwatch?.rgb
-        val lightVibrant = palette.lightVibrantSwatch?.rgb
-        val darkVibrant = palette.darkVibrantSwatch?.rgb
-        val dominant = palette.dominantSwatch?.rgb
-        val muted = palette.mutedSwatch?.rgb
+        val candidates = listOfNotNull(
+            palette.vibrantSwatch?.rgb,
+            palette.lightVibrantSwatch?.rgb,
+            palette.dominantSwatch?.rgb,
+            palette.mutedSwatch?.rgb,
+            palette.darkVibrantSwatch?.rgb,
+            palette.darkMutedSwatch?.rgb
+        ).map { Color(it) }
 
-        val primaryInt = vibrant ?: dominant ?: lightVibrant
-            ?: return@withContext fallbackSeedForKey(fallbackSeed)
-        val secondaryInt = lightVibrant ?: muted ?: vibrant ?: primaryInt
-        val tertiaryInt = darkVibrant ?: dominant ?: primaryInt
+        val nonPink = candidates.filterNot { isPinkOrMagenta(it) }
+        if (nonPink.isEmpty()) {
+            return@withContext fallbackSeedForKey(fallbackSeed)
+        }
 
-        PaletteSeed(
-            primary = Color(primaryInt),
-            secondary = Color(secondaryInt),
-            tertiary = Color(tertiaryInt)
-        )
+        val primary = nonPink[0]
+        val secondary = nonPink.getOrElse(1) { shiftCool(primary, +18f) }
+        val tertiary = nonPink.lastOrNull() ?: shiftCool(primary, -15f)
+
+        PaletteSeed(primary = primary, secondary = secondary, tertiary = tertiary)
     }
 
     /**
-     * Resolves a PaletteSeed into either a refined Light (warm studio alabaster)
-     * or Dark (obsidian ink) editorial palette with guaranteed WCAG text contrast.
+     * Resolves a PaletteSeed into a crisp, cool-toned Light (Nordic Frost) or Dark (Arctic Obsidian)
+     * palette with WCAG-compliant contrast.
      */
     fun resolvePalette(seed: PaletteSeed, isDark: Boolean): DynamicPalette {
         return if (isDark) {
-            val primary = tuneHsl(seed.primary, minSat = 0.48f, maxSat = 0.86f, minLight = 0.56f, maxLight = 0.70f)
-            val secondary = tuneHsl(seed.secondary, minSat = 0.42f, maxSat = 0.82f, minLight = 0.62f, maxLight = 0.78f)
-            val tertiary = tuneHsl(seed.tertiary, minSat = 0.30f, maxSat = 0.55f, minLight = 0.20f, maxLight = 0.34f)
-            val bg = tintNeutral(seed.tertiary, targetLightness = 0.055f, maxSat = 0.24f)
-            val surface = tintNeutral(seed.primary, targetLightness = 0.105f, maxSat = 0.18f)
-            val elevated = tintNeutral(seed.primary, targetLightness = 0.155f, maxSat = 0.20f)
-            val onPrimary = if (primary.luminance() > 0.40f) Color(0xFF101014) else Color(0xFFFFFFFF)
+            val primary = tuneHsl(seed.primary, minSat = 0.44f, maxSat = 0.78f, minLight = 0.56f, maxLight = 0.70f)
+            val secondary = tuneHsl(seed.secondary, minSat = 0.36f, maxSat = 0.70f, minLight = 0.64f, maxLight = 0.78f)
+            val tertiary = tuneHsl(seed.tertiary, minSat = 0.24f, maxSat = 0.46f, minLight = 0.16f, maxLight = 0.28f)
+            val bg = blendCoolBase(Color(0xFF080C12), seed.tertiary, tintAmount = 0.14f)
+            val surface = blendCoolBase(Color(0xFF111824), seed.primary, tintAmount = 0.08f)
+            val elevated = blendCoolBase(Color(0xFF17202E), seed.primary, tintAmount = 0.10f)
+            val onPrimary = if (primary.luminance() > 0.42f) Color(0xFF090D14) else Color(0xFFF8FAFC)
 
             DynamicPalette(
                 isDark = true,
@@ -93,20 +97,20 @@ object DynamicThemeEngine {
                 background = bg,
                 surface = surface,
                 surfaceElevated = elevated,
-                outline = Color.White.copy(alpha = 0.10f),
+                outline = Color(0xFFE2E8F0).copy(alpha = 0.10f),
                 onPrimary = onPrimary,
-                onBackground = Color(0xFFF5F4F8),
-                onBackgroundMuted = Color(0xFFA09DB0)
+                onBackground = Color(0xFFF1F5F9),
+                onBackgroundMuted = Color(0xFF94A3B8)
             )
         } else {
-            // Editorial Light Mode: Warm alabaster paper subtly tinted by the album hue
-            val primary = tuneHsl(seed.primary, minSat = 0.50f, maxSat = 0.84f, minLight = 0.36f, maxLight = 0.48f)
-            val secondary = tuneHsl(seed.secondary, minSat = 0.46f, maxSat = 0.80f, minLight = 0.42f, maxLight = 0.56f)
-            val tertiary = tuneHsl(seed.tertiary, minSat = 0.32f, maxSat = 0.55f, minLight = 0.76f, maxLight = 0.86f)
-            val bg = tintNeutral(seed.primary, targetLightness = 0.965f, maxSat = 0.16f)
-            val surface = tintNeutral(seed.primary, targetLightness = 0.992f, maxSat = 0.08f)
+            // Crisp Arctic Frost Light Mode — clean cool alabaster & slate ink
+            val primary = tuneHsl(seed.primary, minSat = 0.48f, maxSat = 0.80f, minLight = 0.34f, maxLight = 0.46f)
+            val secondary = tuneHsl(seed.secondary, minSat = 0.40f, maxSat = 0.72f, minLight = 0.40f, maxLight = 0.54f)
+            val tertiary = tuneHsl(seed.tertiary, minSat = 0.22f, maxSat = 0.42f, minLight = 0.82f, maxLight = 0.90f)
+            val bg = blendCoolBase(Color(0xFFF3F6FA), seed.primary, tintAmount = 0.05f)
+            val surface = blendCoolBase(Color(0xFFEAEFF5), seed.primary, tintAmount = 0.04f)
             val elevated = Color(0xFFFFFFFF)
-            val onPrimary = if (primary.luminance() > 0.46f) Color(0xFF15141A) else Color(0xFFFFFFFF)
+            val onPrimary = if (primary.luminance() > 0.46f) Color(0xFF0F172A) else Color(0xFFFFFFFF)
 
             DynamicPalette(
                 isDark = false,
@@ -116,12 +120,28 @@ object DynamicThemeEngine {
                 background = bg,
                 surface = surface,
                 surfaceElevated = elevated,
-                outline = Color(0xFF16151C).copy(alpha = 0.08f),
+                outline = Color(0xFF0F172A).copy(alpha = 0.08f),
                 onPrimary = onPrimary,
-                onBackground = Color(0xFF15141A),
-                onBackgroundMuted = Color(0xFF605D6C)
+                onBackground = Color(0xFF0F172A),
+                onBackgroundMuted = Color(0xFF526074)
             )
         }
+    }
+
+    private fun isPinkOrMagenta(color: Color): Boolean {
+        val hsl = FloatArray(3)
+        ColorUtils.colorToHSL(color.toArgb(), hsl)
+        val hue = hsl[0]
+        val sat = hsl[1]
+        return sat > 0.16f && (hue in 288f..356f)
+    }
+
+    private fun shiftCool(color: Color, deltaHue: Float): Color {
+        val hsl = FloatArray(3)
+        ColorUtils.colorToHSL(color.toArgb(), hsl)
+        hsl[0] = (hsl[0] + deltaHue + 360f) % 360f
+        if (hsl[0] in 288f..356f) hsl[0] = 205f
+        return Color(ColorUtils.HSLToColor(hsl))
     }
 
     private fun tuneHsl(
@@ -133,21 +153,19 @@ object DynamicThemeEngine {
     ): Color {
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(color.toArgb(), hsl)
+        if (hsl[0] in 288f..356f) hsl[0] = 205f
         hsl[1] = hsl[1].coerceIn(minSat, maxSat)
         hsl[2] = hsl[2].coerceIn(minLight, maxLight)
         return Color(ColorUtils.HSLToColor(hsl))
     }
 
-    private fun tintNeutral(
-        color: Color,
-        targetLightness: Float,
-        maxSat: Float
-    ): Color {
-        val hsl = FloatArray(3)
-        ColorUtils.colorToHSL(color.toArgb(), hsl)
-        hsl[1] = (hsl[1] * 0.38f).coerceIn(0.06f, maxSat)
-        hsl[2] = targetLightness
-        return Color(ColorUtils.HSLToColor(hsl))
+    private fun blendCoolBase(base: Color, tint: Color, tintAmount: Float): Color {
+        return Color(
+            red = base.red * (1f - tintAmount) + tint.red * tintAmount,
+            green = base.green * (1f - tintAmount) + tint.green * tintAmount,
+            blue = base.blue * (1f - tintAmount) + tint.blue * tintAmount,
+            alpha = 1f
+        )
     }
 
     private suspend fun loadSmallBitmap(context: Context, uri: Uri): Bitmap? {

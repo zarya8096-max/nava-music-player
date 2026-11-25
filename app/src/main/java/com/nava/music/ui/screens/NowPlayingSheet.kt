@@ -23,7 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
 import androidx.compose.material.icons.rounded.Album
-import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.Translate
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.GraphicEq
@@ -369,7 +369,7 @@ fun NowPlayingSheet(
                             horizontalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
                             Icon(
-                                imageVector = Icons.Rounded.AutoAwesome,
+                                imageVector = Icons.Rounded.Translate,
                                 contentDescription = null,
                                 tint = palette.primary,
                                 modifier = Modifier.size(18.dp)
