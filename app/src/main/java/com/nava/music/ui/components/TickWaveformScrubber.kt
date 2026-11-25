@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -20,28 +21,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.unit.dp
+import com.nava.music.data.AudioEnergy
 import com.nava.music.data.DynamicPalette
 import com.nava.music.ui.screens.formatDuration
+import kotlinx.coroutines.flow.StateFlow
 import kotlin.math.abs
 
-/**
- * Tactile vertical-tick waveform scrubber inspired by studio hi-fi turntables.
- * Played ticks illuminate in the track's warm accent color; active playhead tick
- * subtly breathes with the music's bass pulse.
- */
 @Composable
 fun TickWaveformScrubber(
     positionMs: Long,
     durationMs: Long,
     isPlaying: Boolean,
-    bassPulse: Float,
+    energyFlow: StateFlow<AudioEnergy>,
     palette: DynamicPalette,
     onSeekFraction: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val energy by energyFlow.collectAsState()
     val progress = if (durationMs > 0L) {
         (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else {
@@ -66,7 +64,7 @@ fun TickWaveformScrubber(
         Canvas(
             modifier = Modifier
                 .weight(1f)
-                .height(30.dp)
+                .height(28.dp)
                 .pointerInput(Unit) {
                     detectTapGestures { offset ->
                         val frac = (offset.x / size.width.toFloat()).coerceIn(0f, 1f)
@@ -87,37 +85,33 @@ fun TickWaveformScrubber(
                             isDragging = false
                             onSeekFraction(dragFraction)
                         },
-                        onDragCancel = {
-                            isDragging = false
-                        }
+                        onDragCancel = { isDragging = false }
                     )
                 }
         ) {
-            val tickCount = 54
+            val tickCount = 52
             val gap = 2.6.dp.toPx()
             val barW = ((size.width - gap * (tickCount - 1)) / tickCount).coerceAtLeast(1.8.dp.toPx())
             val centerY = size.height / 2f
             val activeIdx = (displayFraction * (tickCount - 1)).toInt().coerceIn(0, tickCount - 1)
+            val bassPulse = if (isPlaying) energy.beatPulse else 0f
 
             for (i in 0 until tickCount) {
                 val x = i * (barW + gap)
                 val isPlayed = i <= activeIdx
                 val distToHead = abs(i - activeIdx)
-
-                // Subtle rhythmic height modulation near playhead when playing
                 val headBoost = if (isPlaying && distToHead <= 3) {
-                    (1f - distToHead / 4f) * bassPulse * 0.42f
+                    (1f - distToHead / 4f) * bassPulse * 0.40f
                 } else {
                     0f
                 }
-
-                val baseH = if (i == activeIdx) 0.92f else 0.52f + ((i * 7) % 5) * 0.04f
-                val barH = (size.height * (baseH + headBoost)).coerceIn(8.dp.toPx(), size.height)
+                val baseH = if (i == activeIdx) 0.90f else 0.50f + ((i * 7) % 5) * 0.04f
+                val barH = (size.height * (baseH + headBoost)).coerceIn(7.dp.toPx(), size.height)
 
                 val color = when {
-                    i == activeIdx -> Color.White
-                    isPlayed -> palette.secondary.copy(alpha = 0.92f)
-                    else -> Color.White.copy(alpha = 0.22f)
+                    i == activeIdx -> palette.onBackground
+                    isPlayed -> palette.primary
+                    else -> palette.onBackground.copy(alpha = if (palette.isDark) 0.20f else 0.16f)
                 }
 
                 drawRoundRect(

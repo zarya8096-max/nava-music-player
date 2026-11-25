@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -44,7 +43,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -70,7 +68,6 @@ fun LyricsSheet(
     val payload = lyricsState.payload
     val listState = rememberLazyListState()
 
-    // Automatically load lyrics when opening sheet if not loaded yet
     LaunchedEffect(track.id) {
         if (lyricsState.payload == null && !lyricsState.isLoading) {
             onFetchLyrics(false)
@@ -93,11 +90,7 @@ fun LyricsSheet(
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
-        MeshBackground(
-            palette = palette,
-            bassBoost = 0f,
-            intensity = 0.82f
-        )
+        MeshBackground(palette = palette, animate = false, intensity = 0.55f)
 
         Column(
             modifier = Modifier
@@ -106,7 +99,6 @@ fun LyricsSheet(
                 .navigationBarsPadding()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
-            // Top Bar
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -132,46 +124,49 @@ fun LyricsSheet(
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     IconButton(
                         onClick = { onFetchLyrics(true) },
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.10f))
+                            .background(palette.surface)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
                             contentDescription = "Refresh Lyrics",
-                            tint = palette.onBackground
+                            tint = palette.onBackground,
+                            modifier = Modifier.size(19.dp)
                         )
                     }
 
                     IconButton(
                         onClick = onOpenSettings,
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.10f))
+                            .background(palette.surface)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Settings,
                             contentDescription = "AI Settings",
-                            tint = palette.onBackground
+                            tint = palette.onBackground,
+                            modifier = Modifier.size(19.dp)
                         )
                     }
 
                     IconButton(
                         onClick = onClose,
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.10f))
+                            .background(palette.surface)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Close,
                             contentDescription = "Close",
-                            tint = palette.onBackground
+                            tint = palette.onBackground,
+                            modifier = Modifier.size(19.dp)
                         )
                     }
                 }
@@ -179,7 +174,6 @@ fun LyricsSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // AI Translation Action Strip
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(10.dp),
@@ -190,10 +184,8 @@ fun LyricsSheet(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clip(RoundedCornerShape(16.dp))
-                        .background(
-                            Brush.horizontalGradient(listOf(palette.primary, palette.secondary))
-                        )
+                        .clip(RoundedCornerShape(14.dp))
+                        .background(palette.primary)
                         .clickable(
                             enabled = payload != null && !lyricsState.isTranslating && !lyricsState.isLoading,
                             onClick = onTranslateLyrics
@@ -226,7 +218,7 @@ fun LyricsSheet(
                                 imageVector = Icons.Rounded.Translate,
                                 contentDescription = null,
                                 tint = palette.onPrimary,
-                                modifier = Modifier.size(18.dp)
+                                modifier = Modifier.size(17.dp)
                             )
                             Text(
                                 text = if (hasTranslation) "ترجمه مجدد (${state.aiConfig.targetLanguage})"
@@ -243,23 +235,19 @@ fun LyricsSheet(
                 if (hasTranslation) {
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(14.dp))
                             .background(
-                                if (lyricsState.showTranslation) palette.primary.copy(alpha = 0.28f)
-                                else Color.White.copy(alpha = 0.10f)
+                                if (lyricsState.showTranslation) palette.onBackground
+                                else palette.surface
                             )
-                            .border(
-                                1.dp,
-                                if (lyricsState.showTranslation) palette.primary else Color.White.copy(alpha = 0.15f),
-                                RoundedCornerShape(16.dp)
-                            )
+                            .border(1.dp, palette.outline, RoundedCornerShape(14.dp))
                             .clickable(onClick = onToggleTranslation)
-                            .padding(horizontal = 14.dp, vertical = 11.dp)
+                            .padding(horizontal = 13.dp, vertical = 11.dp)
                     ) {
                         Text(
                             text = if (lyricsState.showTranslation) "نمایش ترجمه" else "فقط متن اصلی",
                             style = MaterialTheme.typography.labelMedium,
-                            color = palette.onBackground
+                            color = if (lyricsState.showTranslation) palette.background else palette.onBackground
                         )
                     }
                 }
@@ -267,7 +255,6 @@ fun LyricsSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Main Lyrics Body
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -279,7 +266,7 @@ fun LyricsSheet(
                             modifier = Modifier.align(Alignment.Center),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            CircularProgressIndicator(color = palette.primary)
+                            CircularProgressIndicator(color = palette.primary, strokeWidth = 2.5.dp)
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
                                 text = "در حال جستجو و استخراج لیریک...",
@@ -293,17 +280,17 @@ fun LyricsSheet(
                         Column(
                             modifier = Modifier
                                 .align(Alignment.Center)
-                                .clip(RoundedCornerShape(24.dp))
-                                .background(Color.White.copy(alpha = 0.08f))
-                                .border(1.dp, palette.primary.copy(alpha = 0.4f), RoundedCornerShape(24.dp))
+                                .clip(RoundedCornerShape(22.dp))
+                                .background(palette.surfaceElevated)
+                                .border(1.dp, palette.outline, RoundedCornerShape(22.dp))
                                 .padding(22.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.AutoAwesome,
                                 contentDescription = null,
-                                tint = palette.secondary,
-                                modifier = Modifier.size(38.dp)
+                                tint = palette.primary,
+                                modifier = Modifier.size(36.dp)
                             )
                             Spacer(modifier = Modifier.height(10.dp))
                             Text(
@@ -325,7 +312,7 @@ fun LyricsSheet(
                                 Button(
                                     onClick = { onFetchLyrics(true) },
                                     colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color.White.copy(alpha = 0.14f),
+                                        containerColor = palette.surface,
                                         contentColor = palette.onBackground
                                     )
                                 ) {
@@ -341,11 +328,11 @@ fun LyricsSheet(
                                 Text(
                                     text = lyricsState.errorMessage,
                                     style = MaterialTheme.typography.bodyMedium,
-                                    color = palette.secondary,
+                                    color = palette.primary,
                                     modifier = Modifier
                                         .fillMaxWidth()
                                         .clip(RoundedCornerShape(14.dp))
-                                        .background(Color.Black.copy(alpha = 0.28f))
+                                        .background(palette.surfaceElevated)
                                         .padding(12.dp)
                                 )
                                 Spacer(modifier = Modifier.height(10.dp))
@@ -362,19 +349,19 @@ fun LyricsSheet(
                                     val textColor by animateColorAsState(
                                         targetValue = when {
                                             !payload.isSynced -> palette.onBackground
-                                            isActive -> Color.White
-                                            else -> palette.onBackgroundMuted.copy(alpha = 0.56f)
+                                            isActive -> palette.onBackground
+                                            else -> palette.onBackgroundMuted.copy(alpha = 0.52f)
                                         },
-                                        animationSpec = tween(260),
+                                        animationSpec = tween(240),
                                         label = "lyricColor"
                                     )
 
                                     Column(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .clip(RoundedCornerShape(16.dp))
+                                            .clip(RoundedCornerShape(14.dp))
                                             .background(
-                                                if (isActive) palette.primary.copy(alpha = 0.22f)
+                                                if (isActive) palette.primary.copy(alpha = 0.14f)
                                                 else Color.Transparent
                                             )
                                             .clickable(enabled = line.timestampMs != null) {
@@ -391,12 +378,12 @@ fun LyricsSheet(
                                         )
 
                                         if (lyricsState.showTranslation && !line.translation.isNullOrBlank()) {
-                                            Spacer(modifier = Modifier.height(5.dp))
+                                            Spacer(modifier = Modifier.height(4.dp))
                                             Text(
                                                 text = line.translation,
                                                 fontSize = if (isActive) 16.sp else 14.sp,
                                                 lineHeight = 23.sp,
-                                                color = if (isActive) palette.secondary else palette.secondary.copy(alpha = 0.72f)
+                                                color = if (isActive) palette.primary else palette.primary.copy(alpha = 0.72f)
                                             )
                                         }
                                     }

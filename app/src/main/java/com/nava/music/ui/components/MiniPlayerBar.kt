@@ -28,13 +28,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nava.music.data.DynamicPalette
 import com.nava.music.data.Track
 
+/**
+ * Clean, refined floating mini-player dock — zero cluttered gradients, sharp Light/Dark contrast.
+ */
 @Composable
 fun MiniPlayerBar(
     track: Track,
@@ -46,56 +48,35 @@ fun MiniPlayerBar(
     onExpand: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val shape = RoundedCornerShape(24.dp)
+    val shape = RoundedCornerShape(22.dp)
 
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(horizontal = 16.dp, vertical = 10.dp)
             .shadow(
-                elevation = 16.dp,
+                elevation = if (palette.isDark) 18.dp else 10.dp,
                 shape = shape,
-                ambientColor = palette.primary,
-                spotColor = palette.primary
+                ambientColor = Color.Black.copy(alpha = if (palette.isDark) 0.55f else 0.16f),
+                spotColor = palette.primary.copy(alpha = 0.25f)
             )
             .clip(shape)
-            .background(
-                Brush.horizontalGradient(
-                    colors = listOf(
-                        palette.deepBackground.copy(alpha = 0.94f),
-                        palette.tertiary.copy(alpha = 0.78f),
-                        palette.deepBackground.copy(alpha = 0.94f)
-                    )
-                )
-            )
-            .border(
-                width = 1.dp,
-                brush = Brush.horizontalGradient(
-                    colors = listOf(
-                        palette.primary.copy(alpha = 0.45f),
-                        palette.secondary.copy(alpha = 0.35f),
-                        Color.White.copy(alpha = 0.14f)
-                    )
-                ),
-                shape = shape
-            )
+            .background(palette.surfaceElevated)
+            .border(width = 1.dp, color = palette.outline, shape = shape)
             .clickable(onClick = onExpand)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Subtle progress hairline along top edge
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(2.5.dp)
-                    .background(Color.White.copy(alpha = 0.10f))
+                    .background(palette.onBackground.copy(alpha = 0.08f))
             ) {
                 Box(
                     modifier = Modifier
                         .fillMaxWidth(progress.coerceIn(0f, 1f))
                         .height(2.5.dp)
-                        .background(
-                            Brush.horizontalGradient(listOf(palette.primary, palette.secondary))
-                        )
+                        .background(palette.primary)
                 )
             }
 
@@ -108,8 +89,9 @@ fun MiniPlayerBar(
             ) {
                 TrackArtwork(
                     track = track,
-                    cornerRadius = 14.dp,
-                    modifier = Modifier.size(48.dp)
+                    cornerRadius = 12.dp,
+                    decodeSizePx = 160,
+                    modifier = Modifier.size(46.dp)
                 )
 
                 Spacer(modifier = Modifier.width(12.dp))
@@ -136,7 +118,7 @@ fun MiniPlayerBar(
                 IconButton(
                     onClick = onTogglePlay,
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(palette.primary)
                 ) {
@@ -144,7 +126,7 @@ fun MiniPlayerBar(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                         contentDescription = if (isPlaying) "Pause" else "Play",
                         tint = palette.onPrimary,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(22.dp)
                     )
                 }
 
@@ -153,7 +135,7 @@ fun MiniPlayerBar(
                         imageVector = Icons.Rounded.SkipNext,
                         contentDescription = "Next",
                         tint = palette.onBackground,
-                        modifier = Modifier.size(26.dp)
+                        modifier = Modifier.size(25.dp)
                     )
                 }
             }

@@ -13,11 +13,12 @@ import com.google.common.util.concurrent.ListenableFuture
 import com.google.common.util.concurrent.MoreExecutors
 import com.nava.music.data.AiConfig
 import com.nava.music.data.AiLyricsRepository
+import com.nava.music.data.AppThemeMode
 import com.nava.music.data.AudioEnergy
-import com.nava.music.data.DynamicPalette
 import com.nava.music.data.LibraryFilter
 import com.nava.music.data.LyricsPayload
 import com.nava.music.data.MediaStoreRepository
+import com.nava.music.data.PaletteSeed
 import com.nava.music.data.PlayerViewMode
 import com.nava.music.data.RepeatMode
 import com.nava.music.data.SettingsRepository
@@ -55,7 +56,8 @@ data class PlayerUiState(
     val favorites: Set<Long> = emptySet(),
     val searchQuery: String = "",
     val activeFilter: LibraryFilter = LibraryFilter.ALL,
-    val palette: DynamicPalette = DynamicThemeEngine.defaultPalette,
+    val paletteSeed: PaletteSeed = DynamicThemeEngine.defaultSeed,
+    val themeMode: AppThemeMode = AppThemeMode.SYSTEM,
     val visualizerStyle: VisualizerStyle = VisualizerStyle.HALO_AND_WAVE,
     val playerViewMode: PlayerViewMode = PlayerViewMode.VINYL,
     val vinylAtmosphere: VinylAtmosphere = VinylAtmosphere.AURORA,
@@ -76,6 +78,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private val _uiState = MutableStateFlow(
         PlayerUiState(
             favorites = settingsRepository.loadFavorites(),
+            themeMode = settingsRepository.loadThemeMode(),
             visualizerStyle = settingsRepository.loadVisualizerStyle(),
             playerViewMode = settingsRepository.loadPlayerViewMode(),
             vinylAtmosphere = settingsRepository.loadVinylAtmosphere(),
@@ -128,12 +131,21 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
     }
 
+    fun setVisualizerUiActive(active: Boolean) {
+        val state = _uiState.value
+        visualizerEngine.setUiActive(
+            active = active,
+            sessionId = NavaPlaybackService.audioSessionId.value,
+            hasRecordPermission = state.hasRecordPermission,
+            isPlaying = state.isPlaying
+        )
+    }
+
     private val playerListener = object : Player.Listener {
         override fun onIsPlayingChanged(isPlaying: Boolean) {
             _uiState.update { it.copy(isPlaying = isPlaying) }
-            val sessionId = NavaPlaybackService.audioSessionId.value
             visualizerEngine.attach(
-                sessionId = sessionId,
+                sessionId = NavaPlaybackService.audioSessionId.value,
                 hasRecordPermission = _uiState.value.hasRecordPermission,
                 isPlaying = isPlaying
             )
@@ -180,7 +192,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         }
 
         if (matchedTrack != null && matchedTrack.id != prevTrackId) {
-            updateDynamicPalette(matchedTrack)
+            updateDynamicSeed(matchedTrack)
             val cached = settingsRepository.loadCachedLyrics(matchedTrack.cacheKey)
             _uiState.update {
                 it.copy(
@@ -199,14 +211,11 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             while (isActive) {
                 val controller = mediaController
                 if (controller != null && controller.isPlaying) {
-                    _uiState.update {
-                        it.copy(
-                            positionMs = controller.currentPosition.coerceAtLeast(0L),
-                            durationMs = controller.duration.takeIf { d -> d > 0 } ?: it.durationMs
-                        )
-                    }
+                    val pos = controller.currentPosition.coerceAtLeast(0L)
+                    val dur = controller.duration.takeIf { d -> d > 0 } ?: _uiState.value.durationMs
+                    _uiState.update { it.copy(positionMs = pos, durationMs = dur) }
                 }
-                delay(180L)
+                delay(250L)
             }
         }
     }
@@ -268,7 +277,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 positionMs = 0L
             )
         }
-        updateDynamicPalette(track)
+        updateDynamicSeed(track)
 
         val cached = settingsRepository.loadCachedLyrics(track.cacheKey)
         _uiState.update { it.copy(lyricsState = LyricsUiState(payload = cached)) }
@@ -356,6 +365,17 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         _uiState.update { it.copy(activeFilter = filter) }
     }
 
+    fun setThemeMode(mode: AppThemeMode) {
+        settingsRepository.saveThemeMode(mode)
+        _uiState.update { it.copy(themeMode = mode) }
+    }
+
+    fun cycleThemeMode() {
+        val all = AppThemeMode.entries
+        val next = all[(all.indexOf(_uiState.value.themeMode) + 1) % all.size]
+        setThemeMode(next)
+    }
+
     fun setVisualizerStyle(style: VisualizerStyle) {
         settingsRepository.saveVisualizerStyle(style)
         _uiState.update { it.copy(visualizerStyle = style) }
@@ -381,12 +401,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         lyricsJob?.cancel()
         lyricsJob = viewModelScope.launch {
             _uiState.update {
-                it.copy(
-                    lyricsState = it.lyricsState.copy(
-                        isLoading = true,
-                        errorMessage = null
-                    )
-                )
+                it.copy(lyricsState = it.lyricsState.copy(isLoading = true, errorMessage = null))
             }
             val result = aiLyricsRepository.fetchLyrics(
                 track = track,
@@ -425,12 +440,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         lyricsJob?.cancel()
         lyricsJob = viewModelScope.launch {
             _uiState.update {
-                it.copy(
-                    lyricsState = it.lyricsState.copy(
-                        isTranslating = true,
-                        errorMessage = null
-                    )
-                )
+                it.copy(lyricsState = it.lyricsState.copy(isTranslating = true, errorMessage = null))
             }
             val result = aiLyricsRepository.translateLyrics(
                 track = track,
@@ -466,23 +476,19 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
     fun toggleShowTranslation() {
         _uiState.update {
-            it.copy(
-                lyricsState = it.lyricsState.copy(
-                    showTranslation = !it.lyricsState.showTranslation
-                )
-            )
+            it.copy(lyricsState = it.lyricsState.copy(showTranslation = !it.lyricsState.showTranslation))
         }
     }
 
-    private fun updateDynamicPalette(track: Track) {
+    private fun updateDynamicSeed(track: Track) {
         paletteJob?.cancel()
         paletteJob = viewModelScope.launch {
-            val extracted = DynamicThemeEngine.extractFromArtwork(
+            val extracted = DynamicThemeEngine.extractSeedFromArtwork(
                 context = getApplication(),
                 artUri = track.albumArtUri,
                 fallbackSeed = "${track.artist}-${track.title}"
             )
-            _uiState.update { it.copy(palette = extracted) }
+            _uiState.update { it.copy(paletteSeed = extracted) }
         }
     }
 

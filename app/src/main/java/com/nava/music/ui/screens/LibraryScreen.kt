@@ -31,11 +31,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
 import androidx.compose.material.icons.rounded.GraphicEq
 import androidx.compose.material.icons.rounded.LibraryMusic
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Refresh
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
@@ -43,6 +46,7 @@ import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -53,13 +57,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.nava.music.data.AudioEnergy
+import com.nava.music.data.AppThemeMode
 import com.nava.music.data.DynamicPalette
 import com.nava.music.data.LibraryFilter
 import com.nava.music.data.Track
@@ -69,12 +72,15 @@ import com.nava.music.ui.components.MiniPlayerBar
 import com.nava.music.ui.components.TrackArtwork
 import com.nava.music.ui.theme.LocalNavaPalette
 
+/**
+ * Clean, airy editorial Library Screen (zero AI-slop neon borders, zero audio-frame recompositions).
+ */
 @Composable
 fun LibraryScreen(
     state: PlayerUiState,
-    energy: AudioEnergy,
     onRequestAudioPermission: () -> Unit,
     onRequestRecordPermission: () -> Unit,
+    onCycleTheme: () -> Unit,
     onRefresh: () -> Unit,
     onSearchChange: (String) -> Unit,
     onFilterSelect: (LibraryFilter) -> Unit,
@@ -103,15 +109,14 @@ fun LibraryScreen(
         }
     }
 
-    val recentHighlights = remember(state.tracks) {
-        state.tracks.take(10)
-    }
+    val recentHighlights = remember(state.tracks) { state.tracks.take(10) }
 
     Box(modifier = Modifier.fillMaxSize()) {
+        // Static zero-CPU subtle ambient wash on Library screen
         MeshBackground(
             palette = palette,
-            bassBoost = if (state.isPlaying) energy.subBass * 0.55f else 0f,
-            intensity = 0.65f
+            animate = false,
+            intensity = 0.50f
         )
 
         Column(
@@ -119,7 +124,7 @@ fun LibraryScreen(
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // Top Editorial Header
+            // Minimal Editorial Header
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -135,82 +140,104 @@ fun LibraryScreen(
                     )
                     Text(
                         text = if (state.tracks.isEmpty()) {
-                            "پخش‌کننده هوشمند موسیقی"
+                            "کتابخانه موسیقی"
                         } else {
-                            "${state.tracks.size} قطعه در کتابخانه"
+                            "${state.tracks.size} قطعه"
                         },
                         style = MaterialTheme.typography.bodyMedium,
                         color = palette.onBackgroundMuted
                     )
                 }
 
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (!state.hasRecordPermission) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(50))
-                                .background(palette.primary.copy(alpha = 0.22f))
-                                .border(1.dp, palette.primary.copy(alpha = 0.45f), RoundedCornerShape(50))
+                                .background(palette.primary.copy(alpha = 0.14f))
                                 .clickable(onClick = onRequestRecordPermission)
-                                .padding(horizontal = 12.dp, vertical = 8.dp)
+                                .padding(horizontal = 11.dp, vertical = 7.dp)
                         ) {
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(5.dp)
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Icon(
                                     imageVector = Icons.Rounded.GraphicEq,
-                                    contentDescription = "Enable Live Bass",
+                                    contentDescription = "Live Bass",
                                     tint = palette.primary,
-                                    modifier = Modifier.size(16.dp)
+                                    modifier = Modifier.size(15.dp)
                                 )
                                 Text(
                                     text = "بیس زنده",
                                     style = MaterialTheme.typography.labelMedium,
-                                    color = palette.onBackground
+                                    color = palette.primary
                                 )
                             }
                         }
                     }
 
+                    // 1-Tap System / Light / Dark Theme Cycle
+                    val themeIcon = when (state.themeMode) {
+                        AppThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
+                        AppThemeMode.LIGHT -> Icons.Rounded.LightMode
+                        AppThemeMode.DARK -> Icons.Rounded.DarkMode
+                    }
+                    IconButton(
+                        onClick = onCycleTheme,
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(CircleShape)
+                            .background(palette.surface)
+                    ) {
+                        Icon(
+                            imageVector = themeIcon,
+                            contentDescription = "Theme: ${state.themeMode.label}",
+                            tint = palette.onBackground,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
                     IconButton(
                         onClick = onRefresh,
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.08f))
+                            .background(palette.surface)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Refresh,
                             contentDescription = "Refresh",
-                            tint = palette.onBackground
+                            tint = palette.onBackground,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
 
                     IconButton(
                         onClick = onOpenSettings,
                         modifier = Modifier
-                            .size(40.dp)
+                            .size(38.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.08f))
+                            .background(palette.surface)
                     ) {
                         Icon(
                             imageVector = Icons.Rounded.Settings,
                             contentDescription = "Settings",
-                            tint = palette.onBackground
+                            tint = palette.onBackground,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                 }
             }
 
-            // Glass Search Bar
+            // Crisp Tonal Search Field
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
-                    .clip(RoundedCornerShape(18.dp))
-                    .background(Color.White.copy(alpha = 0.09f))
-                    .border(1.dp, Color.White.copy(alpha = 0.14f), RoundedCornerShape(18.dp))
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(palette.surface)
+                    .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
                     .padding(horizontal = 14.dp, vertical = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
@@ -218,15 +245,15 @@ fun LibraryScreen(
                     imageVector = Icons.Rounded.Search,
                     contentDescription = null,
                     tint = palette.onBackgroundMuted,
-                    modifier = Modifier.size(20.dp)
+                    modifier = Modifier.size(19.dp)
                 )
                 Spacer(modifier = Modifier.width(10.dp))
                 Box(modifier = Modifier.weight(1f)) {
                     if (state.searchQuery.isEmpty()) {
                         Text(
-                            text = "جستجوی آهنگ، خواننده یا آلبوم...",
+                            text = "جستجو در آهنگ‌ها، خوانندگان و آلبوم‌ها...",
                             style = MaterialTheme.typography.bodyMedium,
-                            color = palette.onBackgroundMuted.copy(alpha = 0.72f)
+                            color = palette.onBackgroundMuted
                         )
                     }
                     BasicTextField(
@@ -252,7 +279,7 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // Filter Pills + Shuffle All
+            // Clean Filter Row
             LazyRow(
                 contentPadding = PaddingValues(horizontal = 20.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -261,21 +288,19 @@ fun LibraryScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(
-                                Brush.horizontalGradient(listOf(palette.primary, palette.secondary))
-                            )
+                            .background(palette.primary)
                             .clickable(enabled = state.tracks.isNotEmpty(), onClick = onShuffleAll)
                             .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.Shuffle,
                                 contentDescription = null,
                                 tint = palette.onPrimary,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(15.dp)
                             )
                             Text(
                                 text = "پخش تصادفی",
@@ -292,22 +317,18 @@ fun LibraryScreen(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
                             .background(
-                                if (selected) palette.primary.copy(alpha = 0.28f)
-                                else Color.White.copy(alpha = 0.08f)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = if (selected) palette.primary.copy(alpha = 0.75f)
-                                else Color.White.copy(alpha = 0.12f),
-                                shape = RoundedCornerShape(50)
+                                if (selected) palette.onBackground
+                                else palette.surface
                             )
                             .clickable { onFilterSelect(filter) }
                             .padding(horizontal = 14.dp, vertical = 8.dp)
                     ) {
                         Text(
                             text = filter.label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = if (selected) palette.onBackground else palette.onBackgroundMuted
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+                            ),
+                            color = if (selected) palette.background else palette.onBackgroundMuted
                         )
                     }
                 }
@@ -315,7 +336,6 @@ fun LibraryScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Content Area
             when {
                 !state.hasAudioPermission -> {
                     PermissionPromptCard(
@@ -325,11 +345,8 @@ fun LibraryScreen(
                 }
 
                 state.isLoadingLibrary -> {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        CircularProgressIndicator(color = palette.primary)
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator(color = palette.primary, strokeWidth = 2.5.dp)
                     }
                 }
 
@@ -340,28 +357,26 @@ fun LibraryScreen(
                 else -> {
                     LazyColumn(
                         contentPadding = PaddingValues(
-                            start = 0.dp,
-                            end = 0.dp,
                             top = 4.dp,
-                            bottom = if (state.currentTrack != null) 118.dp else 28.dp
+                            bottom = if (state.currentTrack != null) 114.dp else 28.dp
                         ),
                         modifier = Modifier.weight(1f)
                     ) {
-                        // Vibrant Recent Carousel when browsing main list
+                        // Clean Frameless Recent Artwork Strip
                         if (state.searchQuery.isEmpty() && state.activeFilter == LibraryFilter.ALL && recentHighlights.size >= 3) {
-                            item {
+                            item(key = "recent_section") {
                                 Text(
-                                    text = "جدیدترین‌ها",
+                                    text = "تازه‌اضافه‌شده",
                                     style = MaterialTheme.typography.titleMedium,
                                     color = palette.onBackground,
                                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                                 )
                                 LazyRow(
                                     contentPadding = PaddingValues(horizontal = 20.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(14.dp)
                                 ) {
                                     items(recentHighlights, key = { "recent_${it.id}" }) { track ->
-                                        RecentTrackCard(
+                                        RecentTrackTile(
                                             track = track,
                                             isCurrent = state.currentTrack?.id == track.id,
                                             palette = palette,
@@ -369,7 +384,7 @@ fun LibraryScreen(
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(18.dp))
+                                Spacer(modifier = Modifier.height(20.dp))
                                 Text(
                                     text = "همه قطعات",
                                     style = MaterialTheme.typography.titleMedium,
@@ -390,13 +405,16 @@ fun LibraryScreen(
                                 onClick = { onTrackClick(track, filteredTracks) },
                                 onFavoriteClick = { onToggleFavorite(track.id) }
                             )
+                            HorizontalDivider(
+                                color = palette.outline.copy(alpha = 0.55f),
+                                modifier = Modifier.padding(start = 82.dp, end = 20.dp)
+                            )
                         }
                     }
                 }
             }
         }
 
-        // Floating Mini Player
         val current = state.currentTrack
         if (current != null) {
             val progress = if (state.durationMs > 0L) {
@@ -421,7 +439,7 @@ fun LibraryScreen(
 }
 
 @Composable
-private fun RecentTrackCard(
+private fun RecentTrackTile(
     track: Track,
     isCurrent: Boolean,
     palette: DynamicPalette,
@@ -429,33 +447,26 @@ private fun RecentTrackCard(
 ) {
     Column(
         modifier = Modifier
-            .width(134.dp)
-            .clip(RoundedCornerShape(20.dp))
-            .background(
-                if (isCurrent) palette.primary.copy(alpha = 0.24f)
-                else Color.White.copy(alpha = 0.07f)
-            )
-            .border(
-                width = 1.dp,
-                color = if (isCurrent) palette.primary.copy(alpha = 0.7f)
-                else Color.White.copy(alpha = 0.10f),
-                shape = RoundedCornerShape(20.dp)
-            )
+            .width(124.dp)
             .clickable(onClick = onClick)
-            .padding(10.dp)
     ) {
         TrackArtwork(
             track = track,
-            cornerRadius = 14.dp,
+            cornerRadius = 16.dp,
+            decodeSizePx = 280,
             modifier = Modifier
-                .fillMaxWidth()
-                .height(114.dp)
+                .size(124.dp)
+                .border(
+                    width = if (isCurrent) 2.dp else 0.5.dp,
+                    color = if (isCurrent) palette.primary else palette.outline,
+                    shape = RoundedCornerShape(16.dp)
+                )
         )
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(7.dp))
         Text(
             text = track.title,
             style = MaterialTheme.typography.titleMedium,
-            color = palette.onBackground,
+            color = if (isCurrent) palette.primary else palette.onBackground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis
         )
@@ -482,35 +493,27 @@ private fun TrackRowItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(
-                if (isCurrent) palette.primary.copy(alpha = 0.18f) else Color.Transparent
-            )
-            .border(
-                width = if (isCurrent) 1.dp else 0.dp,
-                color = if (isCurrent) palette.primary.copy(alpha = 0.45f) else Color.Transparent,
-                shape = RoundedCornerShape(18.dp)
-            )
+            .background(if (isCurrent) palette.primary.copy(alpha = 0.08f) else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 9.dp),
+            .padding(horizontal = 20.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(contentAlignment = Alignment.Center) {
             TrackArtwork(
                 track = track,
-                cornerRadius = 13.dp,
-                modifier = Modifier.size(52.dp)
+                cornerRadius = 11.dp,
+                decodeSizePx = 150,
+                modifier = Modifier.size(50.dp)
             )
             if (isPlaying) {
                 Box(
                     modifier = Modifier
-                        .size(52.dp)
-                        .clip(RoundedCornerShape(13.dp))
-                        .background(Color.Black.copy(alpha = 0.45f)),
+                        .size(50.dp)
+                        .clip(RoundedCornerShape(11.dp))
+                        .background(Color.Black.copy(alpha = 0.48f)),
                     contentAlignment = Alignment.Center
                 ) {
-                    MiniEqualizerGlyph(color = palette.primary)
+                    MiniEqualizerGlyph(color = Color.White)
                 }
             }
         }
@@ -540,7 +543,7 @@ private fun TrackRowItem(
                 imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 contentDescription = "Favorite",
                 tint = if (isFavorite) palette.primary else palette.onBackgroundMuted.copy(alpha = 0.65f),
-                modifier = Modifier.size(20.dp)
+                modifier = Modifier.size(19.dp)
             )
         }
     }
@@ -571,13 +574,13 @@ private fun MiniEqualizerGlyph(color: Color) {
     Row(
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.Bottom,
-        modifier = Modifier.height(18.dp)
+        modifier = Modifier.height(16.dp)
     ) {
         listOf(b1, b2, b3).forEach { frac ->
             Box(
                 modifier = Modifier
-                    .width(3.5.dp)
-                    .height((18 * frac).dp)
+                    .width(3.dp)
+                    .height((16 * frac).dp)
                     .clip(RoundedCornerShape(50))
                     .background(color)
             )
@@ -594,9 +597,9 @@ private fun PermissionPromptCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(24.dp)
-            .clip(RoundedCornerShape(28.dp))
-            .background(Color.White.copy(alpha = 0.08f))
-            .border(1.dp, palette.primary.copy(alpha = 0.4f), RoundedCornerShape(28.dp))
+            .clip(RoundedCornerShape(24.dp))
+            .background(palette.surfaceElevated)
+            .border(1.dp, palette.outline, RoundedCornerShape(24.dp))
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
@@ -604,7 +607,7 @@ private fun PermissionPromptCard(
             imageVector = Icons.Rounded.LibraryMusic,
             contentDescription = null,
             tint = palette.primary,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(44.dp)
         )
         Spacer(modifier = Modifier.height(14.dp))
         Text(
@@ -614,7 +617,7 @@ private fun PermissionPromptCard(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "برای نمایش و پخش فایل‌های صوتی و فعال‌سازی انیمیشن بیس زنده، لطفاً مجوز دسترسی به فایل‌های صوتی را تایید کنید.",
+            text = "برای نمایش و پخش فایل‌های صوتی و فعال‌سازی انیمیشن بیس زنده، مجوز دسترسی به فایل‌های صوتی را تایید کنید.",
             style = MaterialTheme.typography.bodyMedium,
             color = palette.onBackgroundMuted
         )
@@ -625,7 +628,7 @@ private fun PermissionPromptCard(
                 containerColor = palette.primary,
                 contentColor = palette.onPrimary
             ),
-            shape = RoundedCornerShape(16.dp)
+            shape = RoundedCornerShape(14.dp)
         ) {
             Icon(Icons.Rounded.AutoAwesome, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(modifier = Modifier.width(8.dp))
@@ -643,16 +646,17 @@ private fun EmptyLibraryCard(
         modifier = Modifier
             .fillMaxWidth()
             .padding(24.dp)
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color.White.copy(alpha = 0.07f))
+            .clip(RoundedCornerShape(22.dp))
+            .background(palette.surfaceElevated)
+            .border(1.dp, palette.outline, RoundedCornerShape(22.dp))
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Icon(
             imageVector = Icons.Rounded.LibraryMusic,
             contentDescription = null,
-            tint = palette.secondary,
-            modifier = Modifier.size(44.dp)
+            tint = palette.primary,
+            modifier = Modifier.size(40.dp)
         )
         Spacer(modifier = Modifier.height(12.dp))
         Text(

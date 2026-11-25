@@ -1,7 +1,6 @@
 package com.nava.music.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -49,7 +49,7 @@ fun QueueSheet(
     val palette = LocalNavaPalette.current
 
     Box(modifier = Modifier.fillMaxSize()) {
-        MeshBackground(palette = palette, intensity = 0.72f)
+        MeshBackground(palette = palette, animate = false, intensity = 0.50f)
 
         Column(
             modifier = Modifier
@@ -79,46 +79,42 @@ fun QueueSheet(
                 IconButton(
                     onClick = onClose,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.10f))
+                        .background(palette.surface)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = "Close",
-                        tint = palette.onBackground
+                        tint = palette.onBackground,
+                        modifier = Modifier.size(19.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(10.dp))
 
             LazyColumn(
-                contentPadding = PaddingValues(vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp)
+                contentPadding = PaddingValues(vertical = 8.dp)
             ) {
                 itemsIndexed(state.queue, key = { idx, t -> "${idx}_${t.id}" }) { idx, track ->
                     val isCurrent = idx == state.currentIndex || track.id == state.currentTrack?.id
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .clip(RoundedCornerShape(16.dp))
+                            .clip(RoundedCornerShape(14.dp))
                             .background(
-                                if (isCurrent) palette.primary.copy(alpha = 0.22f)
-                                else Color.White.copy(alpha = 0.05f)
-                            )
-                            .border(
-                                width = if (isCurrent) 1.dp else 0.dp,
-                                color = if (isCurrent) palette.primary.copy(alpha = 0.6f) else Color.Transparent,
-                                shape = RoundedCornerShape(16.dp)
+                                if (isCurrent) palette.primary.copy(alpha = 0.12f)
+                                else Color.Transparent
                             )
                             .clickable { onSelectTrack(track) }
-                            .padding(10.dp),
+                            .padding(horizontal = 10.dp, vertical = 10.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TrackArtwork(
                             track = track,
-                            cornerRadius = 12.dp,
+                            cornerRadius = 10.dp,
+                            decodeSizePx = 140,
                             modifier = Modifier.size(46.dp)
                         )
                         Spacer(modifier = Modifier.width(12.dp))
@@ -144,6 +140,10 @@ fun QueueSheet(
                             color = palette.onBackgroundMuted
                         )
                     }
+                    HorizontalDivider(
+                        color = palette.outline.copy(alpha = 0.5f),
+                        modifier = Modifier.padding(start = 68.dp)
+                    )
                 }
             }
         }

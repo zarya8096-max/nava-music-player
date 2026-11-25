@@ -32,6 +32,16 @@ class SettingsRepository(private val context: Context) {
             .apply()
     }
 
+    fun loadThemeMode(): AppThemeMode {
+        val name = prefs.getString("theme_mode", AppThemeMode.SYSTEM.name)
+        return runCatching { AppThemeMode.valueOf(name ?: "") }
+            .getOrDefault(AppThemeMode.SYSTEM)
+    }
+
+    fun saveThemeMode(mode: AppThemeMode) {
+        prefs.edit().putString("theme_mode", mode.name).apply()
+    }
+
     fun loadVisualizerStyle(): VisualizerStyle {
         val name = prefs.getString("viz_style", VisualizerStyle.HALO_AND_WAVE.name)
         return runCatching { VisualizerStyle.valueOf(name ?: "") }
@@ -116,10 +126,5 @@ class SettingsRepository(private val context: Context) {
             }
             file.writeText(root.toString())
         }
-    }
-
-    fun clearLyricsCache(trackKey: String) {
-        val file = File(lyricsCacheDir, "${trackKey.hashCode()}.json")
-        if (file.exists()) file.delete()
     }
 }

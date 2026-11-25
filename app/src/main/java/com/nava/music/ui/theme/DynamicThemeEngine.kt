@@ -9,10 +9,11 @@ import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import androidx.palette.graphics.Palette
-import coil.ImageLoader
+import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
 import com.nava.music.data.DynamicPalette
+import com.nava.music.data.PaletteSeed
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.abs
@@ -20,46 +21,37 @@ import kotlin.math.abs
 object DynamicThemeEngine {
 
     /**
-     * Hand-crafted editorial fallback palettes (never dull gray or generic neon purple).
+     * Refined editorial fallback seeds (warm, organic, non-slop hues).
      */
-    private val curatedPalettes = listOf(
-        // Warm Sunset Coral & Amber
-        Triple(Color(0xFFFF6B6B), Color(0xFFFFB84D), Color(0xFF9B3D6A)),
-        // Aegean Teal & Electric Mint
-        Triple(Color(0xFF2DD4BF), Color(0xFF38BDF8), Color(0xFF1E5F74)),
-        // Saffron Gold & Terracotta
-        Triple(Color(0xFFF59E0B), Color(0xFFFB7185), Color(0xFF7C2D12)),
-        // Velvet Rose & Warm Peach
-        Triple(Color(0xFFF43F5E), Color(0xFFFDA4AF), Color(0xFF6B21A8)),
-        // Cobalt Sky & Coral Spark
-        Triple(Color(0xFF60A5FA), Color(0xFFFF8A65), Color(0xFF1D4ED8)),
-        // Emerald Moss & Lime Glow
-        Triple(Color(0xFF34D399), Color(0xFFFDE047), Color(0xFF065F46)),
-        // Tangerine & Deep Magenta
-        Triple(Color(0xFFFF7A45), Color(0xFFE879F9), Color(0xFF701A75)),
-        // Turquoise Lagoon & Warm Sand
-        Triple(Color(0xFF22D3EE), Color(0xFFFBBF24), Color(0xFF155E75))
+    private val curatedSeeds = listOf(
+        PaletteSeed(Color(0xFFE05A47), Color(0xFFF2A65A), Color(0xFF7B2D4E)), // Terracotta & Amber
+        PaletteSeed(Color(0xFF1E9E89), Color(0xFF38A3D1), Color(0xFF154E5C)), // Deep Aegean Teal
+        PaletteSeed(Color(0xFFD9822B), Color(0xFFE86A58), Color(0xFF6B321A)), // Saffron & Clay
+        PaletteSeed(Color(0xFFD6456B), Color(0xFFF0938B), Color(0xFF5D214A)), // Velvet Rose
+        PaletteSeed(Color(0xFF3B7DD8), Color(0xFFE8845C), Color(0xFF1B3A70)), // Studio Cobalt & Peach
+        PaletteSeed(Color(0xFF2E9E6E), Color(0xFFD4B845), Color(0xFF144D3A)), // Moss & Brass
+        PaletteSeed(Color(0xFFC9603B), Color(0xFFC978B8), Color(0xFF59204E)), // Copper & Plum
+        PaletteSeed(Color(0xFF288FA3), Color(0xFFE5A93C), Color(0xFF174552))  // Petrol & Ochre
     )
 
-    val defaultPalette: DynamicPalette = buildPaletteFromTriad(
-        primary = Color(0xFFFF6B81),
-        secondary = Color(0xFFFFB84D),
-        tertiary = Color(0xFF5B3A8C)
-    )
+    val defaultSeed: PaletteSeed = curatedSeeds[0]
 
-    fun fallbackPaletteForSeed(seed: String): DynamicPalette {
-        val index = abs(seed.hashCode()) % curatedPalettes.size
-        val (p, s, t) = curatedPalettes[index]
-        return buildPaletteFromTriad(p, s, t)
+    fun fallbackSeedForKey(seed: String): PaletteSeed {
+        val index = abs(seed.hashCode()) % curatedSeeds.size
+        return curatedSeeds[index]
     }
 
-    suspend fun extractFromArtwork(
+    /**
+     * Extracts a lightweight PaletteSeed using the shared singleton Coil ImageLoader
+     * at 96x96 resolution (minimal RAM footprint, zero leaked ImageLoaders).
+     */
+    suspend fun extractSeedFromArtwork(
         context: Context,
         artUri: Uri,
         fallbackSeed: String
-    ): DynamicPalette = withContext(Dispatchers.IO) {
-        val bitmap = loadBitmap(context, artUri) ?: return@withContext fallbackPaletteForSeed(fallbackSeed)
-        val palette = Palette.from(bitmap).maximumColorCount(16).generate()
+    ): PaletteSeed = withContext(Dispatchers.IO) {
+        val bitmap = loadSmallBitmap(context, artUri) ?: return@withContext fallbackSeedForKey(fallbackSeed)
+        val palette = Palette.from(bitmap).maximumColorCount(12).generate()
 
         val vibrant = palette.vibrantSwatch?.rgb
         val lightVibrant = palette.lightVibrantSwatch?.rgb
@@ -67,74 +59,105 @@ object DynamicThemeEngine {
         val dominant = palette.dominantSwatch?.rgb
         val muted = palette.mutedSwatch?.rgb
 
-        val primaryInt = vibrant ?: lightVibrant ?: dominant
-            ?: return@withContext fallbackPaletteForSeed(fallbackSeed)
+        val primaryInt = vibrant ?: dominant ?: lightVibrant
+            ?: return@withContext fallbackSeedForKey(fallbackSeed)
         val secondaryInt = lightVibrant ?: muted ?: vibrant ?: primaryInt
         val tertiaryInt = darkVibrant ?: dominant ?: primaryInt
 
-        val primaryColor = boostVibrance(Color(primaryInt), minSat = 0.52f, minLight = 0.54f, maxLight = 0.72f)
-        val secondaryColor = boostVibrance(Color(secondaryInt), minSat = 0.45f, minLight = 0.58f, maxLight = 0.78f)
-        val tertiaryColor = boostVibrance(Color(tertiaryInt), minSat = 0.38f, minLight = 0.24f, maxLight = 0.42f)
-
-        buildPaletteFromTriad(primaryColor, secondaryColor, tertiaryColor)
-    }
-
-    private fun buildPaletteFromTriad(
-        primary: Color,
-        secondary: Color,
-        tertiary: Color
-    ): DynamicPalette {
-        val deepBg = darkenAndTint(tertiary, targetLightness = 0.08f, saturationFactor = 0.65f)
-        val surfaceGlass = darkenAndTint(primary, targetLightness = 0.16f, saturationFactor = 0.42f)
-            .copy(alpha = 0.52f)
-        val onPrimary = if (primary.luminance() > 0.42f) Color(0xFF100E14) else Color(0xFFFFFFFF)
-
-        return DynamicPalette(
-            primary = primary,
-            secondary = secondary,
-            tertiary = tertiary,
-            deepBackground = deepBg,
-            surfaceGlass = surfaceGlass,
-            onPrimary = onPrimary,
-            onBackground = Color(0xFFFAF8FC),
-            onBackgroundMuted = Color(0xFFC8C2D4)
+        PaletteSeed(
+            primary = Color(primaryInt),
+            secondary = Color(secondaryInt),
+            tertiary = Color(tertiaryInt)
         )
     }
 
-    private fun boostVibrance(
+    /**
+     * Resolves a PaletteSeed into either a refined Light (warm studio alabaster)
+     * or Dark (obsidian ink) editorial palette with guaranteed WCAG text contrast.
+     */
+    fun resolvePalette(seed: PaletteSeed, isDark: Boolean): DynamicPalette {
+        return if (isDark) {
+            val primary = tuneHsl(seed.primary, minSat = 0.48f, maxSat = 0.86f, minLight = 0.56f, maxLight = 0.70f)
+            val secondary = tuneHsl(seed.secondary, minSat = 0.42f, maxSat = 0.82f, minLight = 0.62f, maxLight = 0.78f)
+            val tertiary = tuneHsl(seed.tertiary, minSat = 0.30f, maxSat = 0.55f, minLight = 0.20f, maxLight = 0.34f)
+            val bg = tintNeutral(seed.tertiary, targetLightness = 0.055f, maxSat = 0.24f)
+            val surface = tintNeutral(seed.primary, targetLightness = 0.105f, maxSat = 0.18f)
+            val elevated = tintNeutral(seed.primary, targetLightness = 0.155f, maxSat = 0.20f)
+            val onPrimary = if (primary.luminance() > 0.40f) Color(0xFF101014) else Color(0xFFFFFFFF)
+
+            DynamicPalette(
+                isDark = true,
+                primary = primary,
+                secondary = secondary,
+                tertiary = tertiary,
+                background = bg,
+                surface = surface,
+                surfaceElevated = elevated,
+                outline = Color.White.copy(alpha = 0.10f),
+                onPrimary = onPrimary,
+                onBackground = Color(0xFFF5F4F8),
+                onBackgroundMuted = Color(0xFFA09DB0)
+            )
+        } else {
+            // Editorial Light Mode: Warm alabaster paper subtly tinted by the album hue
+            val primary = tuneHsl(seed.primary, minSat = 0.50f, maxSat = 0.84f, minLight = 0.36f, maxLight = 0.48f)
+            val secondary = tuneHsl(seed.secondary, minSat = 0.46f, maxSat = 0.80f, minLight = 0.42f, maxLight = 0.56f)
+            val tertiary = tuneHsl(seed.tertiary, minSat = 0.32f, maxSat = 0.55f, minLight = 0.76f, maxLight = 0.86f)
+            val bg = tintNeutral(seed.primary, targetLightness = 0.965f, maxSat = 0.16f)
+            val surface = tintNeutral(seed.primary, targetLightness = 0.992f, maxSat = 0.08f)
+            val elevated = Color(0xFFFFFFFF)
+            val onPrimary = if (primary.luminance() > 0.46f) Color(0xFF15141A) else Color(0xFFFFFFFF)
+
+            DynamicPalette(
+                isDark = false,
+                primary = primary,
+                secondary = secondary,
+                tertiary = tertiary,
+                background = bg,
+                surface = surface,
+                surfaceElevated = elevated,
+                outline = Color(0xFF16151C).copy(alpha = 0.08f),
+                onPrimary = onPrimary,
+                onBackground = Color(0xFF15141A),
+                onBackgroundMuted = Color(0xFF605D6C)
+            )
+        }
+    }
+
+    private fun tuneHsl(
         color: Color,
         minSat: Float,
+        maxSat: Float,
         minLight: Float,
         maxLight: Float
     ): Color {
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(color.toArgb(), hsl)
-        hsl[1] = hsl[1].coerceIn(minSat, 0.92f)
+        hsl[1] = hsl[1].coerceIn(minSat, maxSat)
         hsl[2] = hsl[2].coerceIn(minLight, maxLight)
         return Color(ColorUtils.HSLToColor(hsl))
     }
 
-    private fun darkenAndTint(
+    private fun tintNeutral(
         color: Color,
         targetLightness: Float,
-        saturationFactor: Float
+        maxSat: Float
     ): Color {
         val hsl = FloatArray(3)
         ColorUtils.colorToHSL(color.toArgb(), hsl)
-        hsl[1] = (hsl[1] * saturationFactor).coerceIn(0.18f, 0.58f)
-        hsl[2] = targetLightness.coerceIn(0.05f, 0.22f)
+        hsl[1] = (hsl[1] * 0.38f).coerceIn(0.06f, maxSat)
+        hsl[2] = targetLightness
         return Color(ColorUtils.HSLToColor(hsl))
     }
 
-    private suspend fun loadBitmap(context: Context, uri: Uri): Bitmap? {
+    private suspend fun loadSmallBitmap(context: Context, uri: Uri): Bitmap? {
         return runCatching {
-            val loader = ImageLoader(context)
             val request = ImageRequest.Builder(context)
                 .data(uri)
-                .size(160, 160)
+                .size(96, 96)
                 .allowHardware(false)
                 .build()
-            val result = loader.execute(request)
+            val result = context.imageLoader.execute(request)
             if (result is SuccessResult) {
                 (result.drawable as? BitmapDrawable)?.bitmap
             } else {

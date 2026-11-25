@@ -23,8 +23,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.AutoAwesome
+import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.Check
 import androidx.compose.material.icons.rounded.Close
+import androidx.compose.material.icons.rounded.DarkMode
+import androidx.compose.material.icons.rounded.LightMode
 import androidx.compose.material.icons.rounded.Visibility
 import androidx.compose.material.icons.rounded.VisibilityOff
 import androidx.compose.material3.Button
@@ -43,13 +46,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import com.nava.music.data.AiConfig
 import com.nava.music.data.AiProvider
+import com.nava.music.data.AppThemeMode
 import com.nava.music.data.VisualizerStyle
 import com.nava.music.ui.components.MeshBackground
 import com.nava.music.ui.theme.LocalNavaPalette
@@ -58,8 +61,10 @@ import com.nava.music.ui.theme.LocalNavaPalette
 @Composable
 fun SettingsSheet(
     initialConfig: AiConfig,
+    themeMode: AppThemeMode,
     visualizerStyle: VisualizerStyle,
     hasRecordPermission: Boolean,
+    onSelectThemeMode: (AppThemeMode) -> Unit,
     onSelectVisualizerStyle: (VisualizerStyle) -> Unit,
     onRequestRecordPermission: () -> Unit,
     onSaveConfig: (AiConfig) -> Unit,
@@ -78,7 +83,7 @@ fun SettingsSheet(
 
     val textFieldColors = OutlinedTextFieldDefaults.colors(
         focusedBorderColor = palette.primary,
-        unfocusedBorderColor = Color.White.copy(alpha = 0.22f),
+        unfocusedBorderColor = palette.outline,
         focusedTextColor = palette.onBackground,
         unfocusedTextColor = palette.onBackground,
         focusedLabelColor = palette.primary,
@@ -87,7 +92,7 @@ fun SettingsSheet(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        MeshBackground(palette = palette, intensity = 0.72f)
+        MeshBackground(palette = palette, animate = false, intensity = 0.45f)
 
         Column(
             modifier = Modifier
@@ -109,10 +114,10 @@ fun SettingsSheet(
                     Icon(
                         imageVector = Icons.Rounded.AutoAwesome,
                         contentDescription = null,
-                        tint = palette.secondary
+                        tint = palette.primary
                     )
                     Text(
-                        text = "تنظیمات هوش مصنوعی و ظاهر",
+                        text = "تنظیمات ظاهر و هوش مصنوعی",
                         style = MaterialTheme.typography.titleLarge,
                         color = palette.onBackground
                     )
@@ -121,23 +126,81 @@ fun SettingsSheet(
                 IconButton(
                     onClick = onClose,
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(38.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.10f))
+                        .background(palette.surface)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Close,
                         contentDescription = "Close",
-                        tint = palette.onBackground
+                        tint = palette.onBackground,
+                        modifier = Modifier.size(19.dp)
                     )
                 }
             }
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
+
+            // Section 0: Theme Mode (System Default / Light / Dark)
+            Text(
+                text = "تم برنامه",
+                style = MaterialTheme.typography.titleMedium,
+                color = palette.onBackground
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(palette.surface)
+                    .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
+                    .padding(4.dp),
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
+            ) {
+                AppThemeMode.entries.forEach { mode ->
+                    val selected = themeMode == mode
+                    val icon = when (mode) {
+                        AppThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
+                        AppThemeMode.LIGHT -> Icons.Rounded.LightMode
+                        AppThemeMode.DARK -> Icons.Rounded.DarkMode
+                    }
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) palette.onBackground else palette.surface)
+                            .clickable { onSelectThemeMode(mode) }
+                            .padding(vertical = 10.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = icon,
+                                contentDescription = null,
+                                tint = if (selected) palette.background else palette.onBackgroundMuted,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = mode.label,
+                                style = MaterialTheme.typography.labelMedium.copy(
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                                ),
+                                color = if (selected) palette.background else palette.onBackgroundMuted
+                            )
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(22.dp))
 
             // Section 1: AI Lyrics & Translation Provider
             Text(
-                text = "سرویس هوش مصنوعی (استخراج و ترجمه لیریک)",
+                text = "سرویس هوش مصنوعی (لیریک و ترجمه)",
                 style = MaterialTheme.typography.titleMedium,
                 color = palette.onBackground
             )
@@ -152,16 +215,9 @@ fun SettingsSheet(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(
-                                if (selected) palette.primary.copy(alpha = 0.28f)
-                                else Color.White.copy(alpha = 0.08f)
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = if (selected) palette.primary else Color.White.copy(alpha = 0.14f),
-                                shape = RoundedCornerShape(16.dp)
-                            )
+                            .clip(RoundedCornerShape(14.dp))
+                            .background(if (selected) palette.primary else palette.surface)
+                            .border(1.dp, palette.outline, RoundedCornerShape(14.dp))
                             .clickable {
                                 provider = option
                                 baseUrl = option.defaultBaseUrl
@@ -175,7 +231,7 @@ fun SettingsSheet(
                             style = MaterialTheme.typography.labelMedium.copy(
                                 fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
                             ),
-                            color = palette.onBackground
+                            color = if (selected) palette.onPrimary else palette.onBackground
                         )
                     }
                 }
@@ -200,7 +256,7 @@ fun SettingsSheet(
                     }
                 },
                 colors = textFieldColors,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -213,7 +269,7 @@ fun SettingsSheet(
                 placeholder = { Text("gemini-2.5-flash یا gpt-4o-mini") },
                 singleLine = true,
                 colors = textFieldColors,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -222,10 +278,10 @@ fun SettingsSheet(
             OutlinedTextField(
                 value = baseUrl,
                 onValueChange = { baseUrl = it },
-                label = { Text("آدرس سرور (Base URL - قابل تغییر برای OpenRouter/پراکسی)") },
+                label = { Text("آدرس سرور (Base URL - برای OpenRouter یا پراکسی)") },
                 singleLine = true,
                 colors = textFieldColors,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -247,22 +303,15 @@ fun SettingsSheet(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(
-                                if (selected) palette.secondary.copy(alpha = 0.28f)
-                                else Color.White.copy(alpha = 0.08f)
-                            )
-                            .border(
-                                1.dp,
-                                if (selected) palette.secondary else Color.White.copy(alpha = 0.14f),
-                                RoundedCornerShape(50)
-                            )
+                            .background(if (selected) palette.onBackground else palette.surface)
+                            .border(1.dp, palette.outline, RoundedCornerShape(50))
                             .clickable { targetLanguage = preset }
                             .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
                         Text(
                             text = preset,
                             style = MaterialTheme.typography.labelMedium,
-                            color = palette.onBackground
+                            color = if (selected) palette.background else palette.onBackground
                         )
                     }
                 }
@@ -276,15 +325,14 @@ fun SettingsSheet(
                 label = { Text("زبان دلخواه") },
                 singleLine = true,
                 colors = textFieldColors,
-                shape = RoundedCornerShape(16.dp),
+                shape = RoundedCornerShape(14.dp),
                 modifier = Modifier.fillMaxWidth()
             )
 
             Spacer(modifier = Modifier.height(22.dp))
 
-            // Section 2: Bass-Reactive Visualizer Style
             Text(
-                text = "حالت انیمیشن واکنش‌پذیر به بیس موزیک",
+                text = "حالت انیمیشن بیس در نمای مدرن",
                 style = MaterialTheme.typography.titleMedium,
                 color = palette.onBackground
             )
@@ -298,23 +346,16 @@ fun SettingsSheet(
                     val selected = visualizerStyle == style
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(14.dp))
-                            .background(
-                                if (selected) palette.primary.copy(alpha = 0.28f)
-                                else Color.White.copy(alpha = 0.08f)
-                            )
-                            .border(
-                                1.dp,
-                                if (selected) palette.primary else Color.White.copy(alpha = 0.14f),
-                                RoundedCornerShape(14.dp)
-                            )
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (selected) palette.onBackground else palette.surface)
+                            .border(1.dp, palette.outline, RoundedCornerShape(12.dp))
                             .clickable { onSelectVisualizerStyle(style) }
                             .padding(horizontal = 14.dp, vertical = 9.dp)
                     ) {
                         Text(
                             text = style.label,
                             style = MaterialTheme.typography.labelMedium,
-                            color = palette.onBackground
+                            color = if (selected) palette.background else palette.onBackground
                         )
                     }
                 }
@@ -325,7 +366,7 @@ fun SettingsSheet(
                 Button(
                     onClick = onRequestRecordPermission,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White.copy(alpha = 0.14f),
+                        containerColor = palette.surfaceElevated,
                         contentColor = palette.onBackground
                     ),
                     shape = RoundedCornerShape(14.dp)
@@ -353,10 +394,10 @@ fun SettingsSheet(
                     containerColor = palette.primary,
                     contentColor = palette.onPrimary
                 ),
-                shape = RoundedCornerShape(18.dp),
+                shape = RoundedCornerShape(16.dp),
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(52.dp)
+                    .height(50.dp)
             ) {
                 Icon(Icons.Rounded.Check, contentDescription = null)
                 Spacer(modifier = Modifier.size(8.dp))

@@ -2,7 +2,6 @@ package com.nava.music.ui.screens
 
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateDpAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -47,9 +46,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -60,11 +56,12 @@ import com.nava.music.ui.components.BassReactiveArtwork
 import com.nava.music.ui.components.MeshBackground
 import com.nava.music.ui.components.WavyProgressBar
 import com.nava.music.ui.theme.LocalNavaPalette
+import kotlinx.coroutines.flow.StateFlow
 
 @Composable
 fun NowPlayingSheet(
     state: PlayerUiState,
-    energy: AudioEnergy,
+    energyFlow: StateFlow<AudioEnergy>,
     onCollapse: () -> Unit,
     onSwitchToVinyl: () -> Unit,
     onTogglePlayPause: () -> Unit,
@@ -90,21 +87,16 @@ fun NowPlayingSheet(
     }
 
     val playCorner by animateDpAsState(
-        targetValue = if (state.isPlaying) 24.dp else 38.dp,
+        targetValue = if (state.isPlaying) 22.dp else 36.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
         label = "playCorner"
-    )
-    val playScale by animateFloatAsState(
-        targetValue = if (state.isPlaying) 1f + energy.beatPulse * 0.055f else 1f,
-        animationSpec = spring(dampingRatio = 0.65f, stiffness = Spring.StiffnessMedium),
-        label = "playBassScale"
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
         MeshBackground(
             palette = palette,
-            bassBoost = if (state.isPlaying) energy.subBass else 0f,
-            intensity = 1f
+            animate = state.isPlaying,
+            intensity = 0.90f
         )
 
         Column(
@@ -115,7 +107,7 @@ fun NowPlayingSheet(
                 .padding(horizontal = 22.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar: Collapse + Visualizer Mode + Vinyl Turntable Switcher + Settings
+            // Refined Top Bar
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -126,7 +118,7 @@ fun NowPlayingSheet(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.10f))
+                        .background(palette.surface)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.KeyboardArrowDown,
@@ -143,8 +135,8 @@ fun NowPlayingSheet(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(Color.White.copy(alpha = 0.10f))
-                            .border(1.dp, palette.primary.copy(alpha = 0.42f), RoundedCornerShape(50))
+                            .background(palette.surface)
+                            .border(1.dp, palette.outline, RoundedCornerShape(50))
                             .clickable(onClick = onCycleVisualizerStyle)
                             .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
@@ -155,7 +147,7 @@ fun NowPlayingSheet(
                             Icon(
                                 imageVector = Icons.Rounded.GraphicEq,
                                 contentDescription = null,
-                                tint = palette.secondary,
+                                tint = palette.primary,
                                 modifier = Modifier.size(15.dp)
                             )
                             Text(
@@ -166,12 +158,10 @@ fun NowPlayingSheet(
                         }
                     }
 
-                    // 1-Tap Switch to Hi-Fi Vinyl Turntable Mode
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(50))
-                            .background(palette.secondary.copy(alpha = 0.22f))
-                            .border(1.dp, palette.secondary.copy(alpha = 0.55f), RoundedCornerShape(50))
+                            .background(palette.onBackground)
                             .clickable(onClick = onSwitchToVinyl)
                             .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
@@ -182,13 +172,13 @@ fun NowPlayingSheet(
                             Icon(
                                 imageVector = Icons.Rounded.Album,
                                 contentDescription = "Vinyl Mode",
-                                tint = palette.secondary,
+                                tint = palette.background,
                                 modifier = Modifier.size(15.dp)
                             )
                             Text(
                                 text = "گرامافون",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = palette.onBackground
+                                color = palette.background
                             )
                         }
                     }
@@ -199,11 +189,11 @@ fun NowPlayingSheet(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(Color.White.copy(alpha = 0.10f))
+                        .background(palette.surface)
                 ) {
                     Icon(
                         imageVector = Icons.Rounded.Settings,
-                        contentDescription = "AI Settings",
+                        contentDescription = "Settings",
                         tint = palette.onBackground,
                         modifier = Modifier.size(20.dp)
                     )
@@ -212,7 +202,7 @@ fun NowPlayingSheet(
 
             BassReactiveArtwork(
                 track = track,
-                energy = energy,
+                energyFlow = energyFlow,
                 palette = palette,
                 isPlaying = state.isPlaying,
                 visualizerStyle = state.visualizerStyle,
@@ -245,18 +235,18 @@ fun NowPlayingSheet(
                     IconButton(
                         onClick = { onToggleFavorite(track.id) },
                         modifier = Modifier
-                            .size(46.dp)
+                            .size(44.dp)
                             .clip(CircleShape)
                             .background(
-                                if (isFavorite) palette.primary.copy(alpha = 0.22f)
-                                else Color.White.copy(alpha = 0.08f)
+                                if (isFavorite) palette.primary.copy(alpha = 0.16f)
+                                else palette.surface
                             )
                     ) {
                         Icon(
                             imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                             contentDescription = "Favorite",
                             tint = if (isFavorite) palette.primary else palette.onBackground,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(22.dp)
                         )
                     }
                 }
@@ -266,11 +256,9 @@ fun NowPlayingSheet(
                 WavyProgressBar(
                     progress = progress,
                     isPlaying = state.isPlaying,
-                    bassAmplitude = if (state.isPlaying) energy.midBass else 0f,
+                    energyFlow = energyFlow,
                     palette = palette,
-                    onSeekFraction = { frac ->
-                        onSeekTo((frac * state.durationMs).toLong())
-                    }
+                    onSeekFraction = { frac -> onSeekTo((frac * state.durationMs).toLong()) }
                 )
 
                 Row(
@@ -301,41 +289,30 @@ fun NowPlayingSheet(
                             imageVector = Icons.Rounded.Shuffle,
                             contentDescription = "Shuffle",
                             tint = if (state.shuffleEnabled) palette.primary else palette.onBackgroundMuted,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(23.dp)
                         )
                     }
 
-                    IconButton(
-                        onClick = onSkipPrevious,
-                        modifier = Modifier.size(54.dp)
-                    ) {
+                    IconButton(onClick = onSkipPrevious, modifier = Modifier.size(52.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.SkipPrevious,
                             contentDescription = "Previous",
                             tint = palette.onBackground,
-                            modifier = Modifier.size(38.dp)
+                            modifier = Modifier.size(36.dp)
                         )
                     }
 
                     Box(
                         modifier = Modifier
-                            .size(74.dp)
-                            .graphicsLayer {
-                                scaleX = playScale
-                                scaleY = playScale
-                            }
+                            .size(72.dp)
                             .shadow(
-                                elevation = 18.dp,
+                                elevation = 14.dp,
                                 shape = RoundedCornerShape(playCorner),
-                                ambientColor = palette.primary,
-                                spotColor = palette.primary
+                                ambientColor = palette.primary.copy(alpha = 0.5f),
+                                spotColor = palette.primary.copy(alpha = 0.5f)
                             )
                             .clip(RoundedCornerShape(playCorner))
-                            .background(
-                                Brush.linearGradient(
-                                    colors = listOf(palette.primary, palette.secondary)
-                                )
-                            )
+                            .background(palette.primary)
                             .clickable(onClick = onTogglePlayPause),
                         contentAlignment = Alignment.Center
                     ) {
@@ -343,75 +320,62 @@ fun NowPlayingSheet(
                             imageVector = if (state.isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,
                             contentDescription = if (state.isPlaying) "Pause" else "Play",
                             tint = palette.onPrimary,
-                            modifier = Modifier.size(38.dp)
+                            modifier = Modifier.size(36.dp)
                         )
                     }
 
-                    IconButton(
-                        onClick = onSkipNext,
-                        modifier = Modifier.size(54.dp)
-                    ) {
+                    IconButton(onClick = onSkipNext, modifier = Modifier.size(52.dp)) {
                         Icon(
                             imageVector = Icons.Rounded.SkipNext,
                             contentDescription = "Next",
                             tint = palette.onBackground,
-                            modifier = Modifier.size(38.dp)
+                            modifier = Modifier.size(36.dp)
                         )
                     }
 
                     IconButton(onClick = onCycleRepeat) {
-                        val icon = when (state.repeatMode) {
-                            RepeatMode.ONE -> Icons.Rounded.RepeatOne
-                            else -> Icons.Rounded.Repeat
+                        val icon = if (state.repeatMode == RepeatMode.ONE) {
+                            Icons.Rounded.RepeatOne
+                        } else {
+                            Icons.Rounded.Repeat
                         }
                         Icon(
                             imageVector = icon,
                             contentDescription = "Repeat",
                             tint = if (state.repeatMode != RepeatMode.OFF) palette.primary else palette.onBackgroundMuted,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(23.dp)
                         )
                     }
                 }
 
-                Spacer(modifier = Modifier.height(18.dp))
+                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(
-                                Brush.horizontalGradient(
-                                    colors = listOf(
-                                        palette.primary.copy(alpha = 0.28f),
-                                        palette.secondary.copy(alpha = 0.22f)
-                                    )
-                                )
-                            )
-                            .border(
-                                width = 1.dp,
-                                color = palette.primary.copy(alpha = 0.50f),
-                                shape = RoundedCornerShape(20.dp)
-                            )
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(palette.surfaceElevated)
+                            .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
                             .clickable(onClick = onOpenLyrics)
                             .padding(vertical = 13.dp),
                         contentAlignment = Alignment.Center
                     ) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(7.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Rounded.AutoAwesome,
                                 contentDescription = null,
-                                tint = palette.secondary,
-                                modifier = Modifier.size(19.dp)
+                                tint = palette.primary,
+                                modifier = Modifier.size(18.dp)
                             )
                             Text(
-                                text = "لیریک و ترجمه هوش مصنوعی",
+                                text = "لیریک و ترجمه AI",
                                 style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
                                 color = palette.onBackground
                             )
@@ -420,9 +384,9 @@ fun NowPlayingSheet(
 
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(20.dp))
-                            .background(Color.White.copy(alpha = 0.10f))
-                            .border(1.dp, Color.White.copy(alpha = 0.16f), RoundedCornerShape(20.dp))
+                            .clip(RoundedCornerShape(16.dp))
+                            .background(palette.surfaceElevated)
+                            .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
                             .clickable(onClick = onOpenQueue)
                             .padding(horizontal = 18.dp, vertical = 13.dp),
                         contentAlignment = Alignment.Center
@@ -435,7 +399,7 @@ fun NowPlayingSheet(
                                 imageVector = Icons.AutoMirrored.Rounded.QueueMusic,
                                 contentDescription = "Queue",
                                 tint = palette.onBackground,
-                                modifier = Modifier.size(19.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Text(
                                 text = "صف پخش",

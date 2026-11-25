@@ -61,10 +61,16 @@ data class AiConfig(
         get() = apiKey.isNotBlank()
 }
 
+enum class AppThemeMode(val label: String) {
+    SYSTEM("سیستم"),
+    LIGHT("روشن"),
+    DARK("تیره")
+}
+
 enum class VisualizerStyle(val label: String) {
-    HALO_AND_WAVE("هاله + طیف بیس"),
-    PULSE_HALO("فقط هاله نبض‌دار"),
-    FLUID_SPECTRUM("طیف فرکانسی"),
+    HALO_AND_WAVE("هاله + طیف"),
+    PULSE_HALO("هاله بیس"),
+    FLUID_SPECTRUM("طیف صدا"),
     MINIMAL("مینیمال")
 }
 
@@ -97,17 +103,33 @@ data class AudioEnergy(
     val mids: Float = 0f,
     val treble: Float = 0f,
     val beatPulse: Float = 0f,
-    val spectrum: List<Float> = List(28) { 0f },
+    val spectrum: List<Float> = List(24) { 0f },
     val isLiveAudio: Boolean = false
 )
 
+/**
+ * Extracted color seed from album artwork — independent of Light/Dark mode.
+ */
+@Immutable
+data class PaletteSeed(
+    val primary: Color,
+    val secondary: Color,
+    val tertiary: Color
+)
+
+/**
+ * Resolved editorial palette for the active theme (Light or Dark).
+ */
 @Immutable
 data class DynamicPalette(
+    val isDark: Boolean,
     val primary: Color,
     val secondary: Color,
     val tertiary: Color,
-    val deepBackground: Color,
-    val surfaceGlass: Color,
+    val background: Color,
+    val surface: Color,
+    val surfaceElevated: Color,
+    val outline: Color,
     val onPrimary: Color,
     val onBackground: Color,
     val onBackgroundMuted: Color
