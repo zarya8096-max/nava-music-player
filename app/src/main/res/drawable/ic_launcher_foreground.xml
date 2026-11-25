@@ -1,0 +1,29 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Outer warm coral-violet wave ring -->
+    <path
+        android:fillColor="#FF5E7E"
+        android:fillAlpha="0.22"
+        android:pathData="M54,18 A36,36 0 1,1 53.99,18 Z" />
+    <!-- Inner golden-amber aura -->
+    <path
+        android:fillColor="#FFB84D"
+        android:fillAlpha="0.32"
+        android:pathData="M54,28 A26,26 0 1,1 53.99,28 Z" />
+    <!-- Stylized soundwave bars forming Nava emblem -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M34,47 C34,44.8 35.8,43 38,43 C40.2,43 42,44.8 42,47 L42,61 C42,63.2 40.2,65 38,65 C35.8,65 34,63.2 34,61 Z" />
+    <path
+        android:fillColor="#FFD166"
+        android:pathData="M46,35 C46,32.8 47.8,31 50,31 C52.2,31 54,32.8 54,35 L54,73 C54,75.2 52.2,77 50,77 C47.8,77 46,75.2 46,73 Z" />
+    <path
+        android:fillColor="#FF6B8B"
+        android:pathData="M58,41 C58,38.8 59.8,37 62,37 C64.2,37 66,38.8 66,41 L66,67 C66,69.2 64.2,71 62,71 C59.8,71 58,69.2 58,67 Z" />
+    <path
+        android:fillColor="#6EE7E7"
+        android:pathData="M70,49 C70,46.8 71.8,45 74,45 C76.2,45 78,46.8 78,49 L78,59 C78,61.2 76.2,63 74,63 C71.8,63 70,61.2 70,59 Z" />
+</vector>
