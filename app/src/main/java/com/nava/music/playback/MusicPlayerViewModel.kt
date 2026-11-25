@@ -18,9 +18,11 @@ import com.nava.music.data.DynamicPalette
 import com.nava.music.data.LibraryFilter
 import com.nava.music.data.LyricsPayload
 import com.nava.music.data.MediaStoreRepository
+import com.nava.music.data.PlayerViewMode
 import com.nava.music.data.RepeatMode
 import com.nava.music.data.SettingsRepository
 import com.nava.music.data.Track
+import com.nava.music.data.VinylAtmosphere
 import com.nava.music.data.VisualizerStyle
 import com.nava.music.ui.theme.DynamicThemeEngine
 import kotlinx.coroutines.Job
@@ -55,6 +57,8 @@ data class PlayerUiState(
     val activeFilter: LibraryFilter = LibraryFilter.ALL,
     val palette: DynamicPalette = DynamicThemeEngine.defaultPalette,
     val visualizerStyle: VisualizerStyle = VisualizerStyle.HALO_AND_WAVE,
+    val playerViewMode: PlayerViewMode = PlayerViewMode.VINYL,
+    val vinylAtmosphere: VinylAtmosphere = VinylAtmosphere.AURORA,
     val aiConfig: AiConfig = AiConfig(),
     val lyricsState: LyricsUiState = LyricsUiState(),
     val hasAudioPermission: Boolean = false,
@@ -73,6 +77,8 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         PlayerUiState(
             favorites = settingsRepository.loadFavorites(),
             visualizerStyle = settingsRepository.loadVisualizerStyle(),
+            playerViewMode = settingsRepository.loadPlayerViewMode(),
+            vinylAtmosphere = settingsRepository.loadVinylAtmosphere(),
             aiConfig = settingsRepository.loadAiConfig()
         )
     )
@@ -175,7 +181,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
         if (matchedTrack != null && matchedTrack.id != prevTrackId) {
             updateDynamicPalette(matchedTrack)
-            // Reset lyrics state for the new track and load cache if present
             val cached = settingsRepository.loadCachedLyrics(matchedTrack.cacheKey)
             _uiState.update {
                 it.copy(
@@ -354,6 +359,16 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     fun setVisualizerStyle(style: VisualizerStyle) {
         settingsRepository.saveVisualizerStyle(style)
         _uiState.update { it.copy(visualizerStyle = style) }
+    }
+
+    fun setPlayerViewMode(mode: PlayerViewMode) {
+        settingsRepository.savePlayerViewMode(mode)
+        _uiState.update { it.copy(playerViewMode = mode) }
+    }
+
+    fun setVinylAtmosphere(atmosphere: VinylAtmosphere) {
+        settingsRepository.saveVinylAtmosphere(atmosphere)
+        _uiState.update { it.copy(vinylAtmosphere = atmosphere) }
     }
 
     fun saveAiConfig(config: AiConfig) {

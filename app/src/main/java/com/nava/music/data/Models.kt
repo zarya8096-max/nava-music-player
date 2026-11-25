@@ -68,6 +68,17 @@ enum class VisualizerStyle(val label: String) {
     MINIMAL("مینیمال")
 }
 
+enum class PlayerViewMode {
+    MODERN,
+    VINYL
+}
+
+enum class VinylAtmosphere(val label: String) {
+    AURORA("Aurora"),
+    COSMOS("Cosmos"),
+    GALLERY("Gallery")
+}
+
 enum class RepeatMode {
     OFF, ALL, ONE
 }

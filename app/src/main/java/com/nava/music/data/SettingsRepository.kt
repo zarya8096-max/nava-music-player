@@ -42,6 +42,26 @@ class SettingsRepository(private val context: Context) {
         prefs.edit().putString("viz_style", style.name).apply()
     }
 
+    fun loadPlayerViewMode(): PlayerViewMode {
+        val name = prefs.getString("player_view_mode", PlayerViewMode.VINYL.name)
+        return runCatching { PlayerViewMode.valueOf(name ?: "") }
+            .getOrDefault(PlayerViewMode.VINYL)
+    }
+
+    fun savePlayerViewMode(mode: PlayerViewMode) {
+        prefs.edit().putString("player_view_mode", mode.name).apply()
+    }
+
+    fun loadVinylAtmosphere(): VinylAtmosphere {
+        val name = prefs.getString("vinyl_atmosphere", VinylAtmosphere.AURORA.name)
+        return runCatching { VinylAtmosphere.valueOf(name ?: "") }
+            .getOrDefault(VinylAtmosphere.AURORA)
+    }
+
+    fun saveVinylAtmosphere(atmosphere: VinylAtmosphere) {
+        prefs.edit().putString("vinyl_atmosphere", atmosphere.name).apply()
+    }
+
     fun loadFavorites(): Set<Long> {
         val raw = prefs.getStringSet("favorite_ids", emptySet()) ?: emptySet()
         return raw.mapNotNull { it.toLongOrNull() }.toSet()

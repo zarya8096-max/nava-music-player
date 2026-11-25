@@ -12,6 +12,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.Crossfade
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -29,6 +31,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.nava.music.data.PlayerViewMode
 import com.nava.music.data.VisualizerStyle
 import com.nava.music.playback.MusicPlayerViewModel
 import com.nava.music.ui.screens.LibraryScreen
@@ -36,6 +39,7 @@ import com.nava.music.ui.screens.LyricsSheet
 import com.nava.music.ui.screens.NowPlayingSheet
 import com.nava.music.ui.screens.QueueSheet
 import com.nava.music.ui.screens.SettingsSheet
+import com.nava.music.ui.screens.VinylPlayerView
 import com.nava.music.ui.theme.NavaTheme
 
 class MainActivity : ComponentActivity() {
@@ -141,32 +145,62 @@ private fun NavaApp(
                 onOpenSettings = { showSettings = true }
             )
 
-            // Full-Screen Now Playing Sheet
+            // Full-Screen Now Playing Overlay (Modern <-> Hi-Fi Vinyl Turntable Crossfade)
             AnimatedVisibility(
                 visible = showNowPlaying && state.currentTrack != null,
                 enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
                 exit = slideOutVertically(targetOffsetY = { it }) + fadeOut()
             ) {
-                NowPlayingSheet(
-                    state = state,
-                    energy = energy,
-                    onCollapse = { showNowPlaying = false },
-                    onTogglePlayPause = { viewModel.togglePlayPause() },
-                    onSkipNext = { viewModel.skipNext() },
-                    onSkipPrevious = { viewModel.skipPrevious() },
-                    onSeekTo = { viewModel.seekTo(it) },
-                    onToggleShuffle = { viewModel.toggleShuffle() },
-                    onCycleRepeat = { viewModel.cycleRepeatMode() },
-                    onToggleFavorite = { viewModel.toggleFavorite(it) },
-                    onCycleVisualizerStyle = {
-                        val all = VisualizerStyle.entries
-                        val next = all[(all.indexOf(state.visualizerStyle) + 1) % all.size]
-                        viewModel.setVisualizerStyle(next)
-                    },
-                    onOpenLyrics = { showLyrics = true },
-                    onOpenQueue = { showQueue = true },
-                    onOpenSettings = { showSettings = true }
-                )
+                Crossfade(
+                    targetState = state.playerViewMode,
+                    animationSpec = tween(420),
+                    label = "playerModeCrossfade"
+                ) { mode ->
+                    when (mode) {
+                        PlayerViewMode.VINYL -> {
+                            VinylPlayerView(
+                                state = state,
+                                energy = energy,
+                                onCollapse = { showNowPlaying = false },
+                                onSwitchToModern = { viewModel.setPlayerViewMode(PlayerViewMode.MODERN) },
+                                onSelectAtmosphere = { viewModel.setVinylAtmosphere(it) },
+                                onTogglePlayPause = { viewModel.togglePlayPause() },
+                                onSkipNext = { viewModel.skipNext() },
+                                onSkipPrevious = { viewModel.skipPrevious() },
+                                onSeekTo = { viewModel.seekTo(it) },
+                                onToggleShuffle = { viewModel.toggleShuffle() },
+                                onCycleRepeat = { viewModel.cycleRepeatMode() },
+                                onToggleFavorite = { viewModel.toggleFavorite(it) },
+                                onOpenLyrics = { showLyrics = true },
+                                onOpenQueue = { showQueue = true }
+                            )
+                        }
+
+                        PlayerViewMode.MODERN -> {
+                            NowPlayingSheet(
+                                state = state,
+                                energy = energy,
+                                onCollapse = { showNowPlaying = false },
+                                onSwitchToVinyl = { viewModel.setPlayerViewMode(PlayerViewMode.VINYL) },
+                                onTogglePlayPause = { viewModel.togglePlayPause() },
+                                onSkipNext = { viewModel.skipNext() },
+                                onSkipPrevious = { viewModel.skipPrevious() },
+                                onSeekTo = { viewModel.seekTo(it) },
+                                onToggleShuffle = { viewModel.toggleShuffle() },
+                                onCycleRepeat = { viewModel.cycleRepeatMode() },
+                                onToggleFavorite = { viewModel.toggleFavorite(it) },
+                                onCycleVisualizerStyle = {
+                                    val all = VisualizerStyle.entries
+                                    val next = all[(all.indexOf(state.visualizerStyle) + 1) % all.size]
+                                    viewModel.setVisualizerStyle(next)
+                                },
+                                onOpenLyrics = { showLyrics = true },
+                                onOpenQueue = { showQueue = true },
+                                onOpenSettings = { showSettings = true }
+                            )
+                        }
+                    }
+                }
             }
 
             // AI Lyrics & Translation Sheet

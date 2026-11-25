@@ -19,11 +19,11 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.rounded.QueueMusic
+import androidx.compose.material.icons.rounded.Album
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
@@ -55,7 +55,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nava.music.data.AudioEnergy
 import com.nava.music.data.RepeatMode
-import com.nava.music.data.VisualizerStyle
 import com.nava.music.playback.PlayerUiState
 import com.nava.music.ui.components.BassReactiveArtwork
 import com.nava.music.ui.components.MeshBackground
@@ -67,6 +66,7 @@ fun NowPlayingSheet(
     state: PlayerUiState,
     energy: AudioEnergy,
     onCollapse: () -> Unit,
+    onSwitchToVinyl: () -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
     onSkipPrevious: () -> Unit,
@@ -89,7 +89,6 @@ fun NowPlayingSheet(
         0f
     }
 
-    // Play/Pause morphing squircle <-> circle radius + subtle bass pulse
     val playCorner by animateDpAsState(
         targetValue = if (state.isPlaying) 24.dp else 38.dp,
         animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy),
@@ -102,7 +101,6 @@ fun NowPlayingSheet(
     )
 
     Box(modifier = Modifier.fillMaxSize()) {
-        // Living full-bleed atmospheric mesh synced to album art & sub-bass
         MeshBackground(
             palette = palette,
             bassBoost = if (state.isPlaying) energy.subBass else 0f,
@@ -117,7 +115,7 @@ fun NowPlayingSheet(
                 .padding(horizontal = 22.dp, vertical = 10.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            // Top Bar: Collapse + Visualizer Mode Pill
+            // Top Bar: Collapse + Visualizer Mode + Vinyl Turntable Switcher + Settings
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -126,7 +124,7 @@ fun NowPlayingSheet(
                 IconButton(
                     onClick = onCollapse,
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.10f))
                 ) {
@@ -134,41 +132,72 @@ fun NowPlayingSheet(
                         imageVector = Icons.Rounded.KeyboardArrowDown,
                         contentDescription = "Collapse",
                         tint = palette.onBackground,
-                        modifier = Modifier.size(28.dp)
+                        modifier = Modifier.size(26.dp)
                     )
                 }
 
-                // Visualizer mode pill
-                Box(
-                    modifier = Modifier
-                        .clip(RoundedCornerShape(50))
-                        .background(Color.White.copy(alpha = 0.10f))
-                        .border(1.dp, palette.primary.copy(alpha = 0.42f), RoundedCornerShape(50))
-                        .clickable(onClick = onCycleVisualizerStyle)
-                        .padding(horizontal = 14.dp, vertical = 7.dp)
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(Color.White.copy(alpha = 0.10f))
+                            .border(1.dp, palette.primary.copy(alpha = 0.42f), RoundedCornerShape(50))
+                            .clickable(onClick = onCycleVisualizerStyle)
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
                     ) {
-                        Icon(
-                            imageVector = Icons.Rounded.GraphicEq,
-                            contentDescription = null,
-                            tint = palette.secondary,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Text(
-                            text = state.visualizerStyle.label,
-                            style = MaterialTheme.typography.labelMedium,
-                            color = palette.onBackground
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.GraphicEq,
+                                contentDescription = null,
+                                tint = palette.secondary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Text(
+                                text = state.visualizerStyle.label,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = palette.onBackground
+                            )
+                        }
+                    }
+
+                    // 1-Tap Switch to Hi-Fi Vinyl Turntable Mode
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(50))
+                            .background(palette.secondary.copy(alpha = 0.22f))
+                            .border(1.dp, palette.secondary.copy(alpha = 0.55f), RoundedCornerShape(50))
+                            .clickable(onClick = onSwitchToVinyl)
+                            .padding(horizontal = 12.dp, vertical = 7.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(5.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Rounded.Album,
+                                contentDescription = "Vinyl Mode",
+                                tint = palette.secondary,
+                                modifier = Modifier.size(15.dp)
+                            )
+                            Text(
+                                text = "گرامافون",
+                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                                color = palette.onBackground
+                            )
+                        }
                     }
                 }
 
                 IconButton(
                     onClick = onOpenSettings,
                     modifier = Modifier
-                        .size(42.dp)
+                        .size(40.dp)
                         .clip(CircleShape)
                         .background(Color.White.copy(alpha = 0.10f))
                 ) {
@@ -176,12 +205,11 @@ fun NowPlayingSheet(
                         imageVector = Icons.Rounded.Settings,
                         contentDescription = "AI Settings",
                         tint = palette.onBackground,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
 
-            // Centerpiece Bass-Reactive Artwork Stage
             BassReactiveArtwork(
                 track = track,
                 energy = energy,
@@ -191,9 +219,7 @@ fun NowPlayingSheet(
                 modifier = Modifier.weight(1f)
             )
 
-            // Bottom Controls Block
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Title, Artist & Favorite
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically
@@ -237,7 +263,6 @@ fun NowPlayingSheet(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // Expressive Wavy Scrubber
                 WavyProgressBar(
                     progress = progress,
                     isPlaying = state.isPlaying,
@@ -266,7 +291,6 @@ fun NowPlayingSheet(
 
                 Spacer(modifier = Modifier.height(12.dp))
 
-                // Transport Controls
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
@@ -293,7 +317,6 @@ fun NowPlayingSheet(
                         )
                     }
 
-                    // Morphing Bass-Pulsing Play/Pause Button
                     Box(
                         modifier = Modifier
                             .size(74.dp)
@@ -352,7 +375,6 @@ fun NowPlayingSheet(
 
                 Spacer(modifier = Modifier.height(18.dp))
 
-                // Bottom Utility Dock: AI Lyrics & Translation + Queue
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp)
