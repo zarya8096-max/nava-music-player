@@ -169,6 +169,7 @@ private fun NavaApp(
         Box(modifier = Modifier.fillMaxSize()) {
             LibraryScreen(
                 state = state,
+                positionFlow = viewModel.playbackPositionMs,
                 onRequestAudioPermission = {
                     permissionLauncher.launch(arrayOf(audioPermission, Manifest.permission.RECORD_AUDIO))
                 },
@@ -211,6 +212,7 @@ private fun NavaApp(
                         PlayerViewMode.VINYL -> {
                             VinylPlayerView(
                                 state = state,
+                                positionFlow = viewModel.playbackPositionMs,
                                 energyFlow = viewModel.audioEnergy,
                                 onCollapse = { showNowPlaying = false },
                                 onSwitchToModern = { viewModel.setPlayerViewMode(PlayerViewMode.MODERN) },
@@ -230,6 +232,7 @@ private fun NavaApp(
                         PlayerViewMode.MODERN -> {
                             NowPlayingSheet(
                                 state = state,
+                                positionFlow = viewModel.playbackPositionMs,
                                 energyFlow = viewModel.audioEnergy,
                                 onCollapse = { showNowPlaying = false },
                                 onSwitchToVinyl = { viewModel.setPlayerViewMode(PlayerViewMode.VINYL) },
@@ -261,6 +264,7 @@ private fun NavaApp(
             ) {
                 LyricsSheet(
                     state = state,
+                    positionFlow = viewModel.playbackPositionMs,
                     onClose = { showLyrics = false },
                     onFetchLyrics = { force -> viewModel.fetchLyricsForCurrentTrack(force) },
                     onTranslateLyrics = { viewModel.translateCurrentLyrics() },

@@ -44,6 +44,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -73,6 +74,7 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun VinylPlayerView(
     state: PlayerUiState,
+    positionFlow: StateFlow<Long>,
     energyFlow: StateFlow<AudioEnergy>,
     onCollapse: () -> Unit,
     onSwitchToModern: () -> Unit,
@@ -228,6 +230,7 @@ fun VinylPlayerView(
                             VinylControlsColumn(
                                 track = track,
                                 state = state,
+                                positionFlow = positionFlow,
                                 energyFlow = energyFlow,
                                 palette = palette,
                                 isFavorite = isFavorite,
@@ -268,6 +271,7 @@ fun VinylPlayerView(
                         VinylControlsColumn(
                             track = track,
                             state = state,
+                            positionFlow = positionFlow,
                             energyFlow = energyFlow,
                             palette = palette,
                             isFavorite = isFavorite,
@@ -293,6 +297,7 @@ fun VinylPlayerView(
 private fun VinylControlsColumn(
     track: Track,
     state: PlayerUiState,
+    positionFlow: StateFlow<Long>,
     energyFlow: StateFlow<AudioEnergy>,
     palette: DynamicPalette,
     isFavorite: Boolean,
@@ -347,8 +352,9 @@ private fun VinylControlsColumn(
             }
         }
 
+        val positionMs by positionFlow.collectAsState()
         TickWaveformScrubber(
-            positionMs = state.positionMs,
+            positionMs = positionMs,
             durationMs = state.durationMs,
             isPlaying = state.isPlaying,
             energyFlow = energyFlow,

@@ -24,6 +24,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.StateFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -41,7 +44,8 @@ import com.nava.music.data.Track
 fun MiniPlayerBar(
     track: Track,
     isPlaying: Boolean,
-    progress: Float,
+    positionFlow: StateFlow<Long>,
+    durationMs: Long,
     palette: DynamicPalette,
     onTogglePlay: () -> Unit,
     onNext: () -> Unit,
@@ -66,19 +70,11 @@ fun MiniPlayerBar(
             .clickable(onClick = onExpand)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(2.5.dp)
-                    .background(palette.onBackground.copy(alpha = 0.08f))
-            ) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth(progress.coerceIn(0f, 1f))
-                        .height(2.5.dp)
-                        .background(palette.primary)
-                )
-            }
+            MiniProgressHairline(
+                positionFlow = positionFlow,
+                durationMs = durationMs,
+                palette = palette
+            )
 
             Row(
                 modifier = Modifier
@@ -140,5 +136,28 @@ fun MiniPlayerBar(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun MiniProgressHairline(
+    positionFlow: StateFlow<Long>,
+    durationMs: Long,
+    palette: DynamicPalette
+) {
+    val pos by positionFlow.collectAsState()
+    val progress = if (durationMs > 0L) (pos.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f) else 0f
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(2.5.dp)
+            .background(palette.onBackground.copy(alpha = 0.08f))
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(progress)
+                .height(2.5.dp)
+                .background(palette.primary)
+        )
     }
 }

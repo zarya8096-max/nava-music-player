@@ -38,7 +38,9 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import kotlinx.coroutines.flow.StateFlow
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -55,6 +57,7 @@ import com.nava.music.ui.theme.LocalNavaPalette
 @Composable
 fun LyricsSheet(
     state: PlayerUiState,
+    positionFlow: StateFlow<Long>,
     onClose: () -> Unit,
     onFetchLyrics: (Boolean) -> Unit,
     onTranslateLyrics: () -> Unit,
@@ -74,11 +77,12 @@ fun LyricsSheet(
         }
     }
 
-    val activeLineIndex = remember(payload, state.positionMs) {
+    val positionMs by positionFlow.collectAsState()
+    val activeLineIndex = remember(payload, positionMs) {
         if (payload == null || !payload.isSynced) -1
         else payload.lines.indexOfLast { line ->
             val ts = line.timestampMs
-            ts != null && ts <= state.positionMs + 250L
+            ts != null && ts <= positionMs + 250L
         }
     }
 

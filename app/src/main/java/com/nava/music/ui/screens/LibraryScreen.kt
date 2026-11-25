@@ -75,6 +75,7 @@ import com.nava.music.playback.PlayerUiState
 import com.nava.music.ui.components.MiniPlayerBar
 import com.nava.music.ui.components.TrackArtwork
 import com.nava.music.ui.theme.LocalNavaPalette
+import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Flagship v2.0 Library Screen:
@@ -85,6 +86,7 @@ import com.nava.music.ui.theme.LocalNavaPalette
 @Composable
 fun LibraryScreen(
     state: PlayerUiState,
+    positionFlow: StateFlow<Long>,
     onRequestAudioPermission: () -> Unit,
     onRefresh: () -> Unit,
     onSearchChange: (String) -> Unit,
@@ -497,7 +499,7 @@ fun LibraryScreen(
                         contentPadding = PaddingValues(top = 4.dp, bottom = bottomContentClearance),
                         modifier = Modifier.weight(1f)
                     ) {
-                        items(state.tracks, key = { it.id }) { track ->
+                        items(state.tracks, key = { it.id }, contentType = { "track_row" }) { track ->
                             val isCurrent = state.currentTrack?.id == track.id
                             TrackRowItem(
                                 track = track,
@@ -572,15 +574,11 @@ fun LibraryScreen(
         ) {
             val current = state.currentTrack
             if (current != null) {
-                val progress = if (state.durationMs > 0L) {
-                    (state.positionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
-                } else {
-                    0f
-                }
                 MiniPlayerBar(
                     track = current,
                     isPlaying = state.isPlaying,
-                    progress = progress,
+                    positionFlow = positionFlow,
+                    durationMs = state.durationMs,
                     palette = palette,
                     onTogglePlay = onTogglePlayPause,
                     onNext = onSkipNext,

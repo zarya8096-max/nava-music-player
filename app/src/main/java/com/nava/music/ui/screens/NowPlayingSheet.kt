@@ -41,6 +41,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -61,6 +62,7 @@ import kotlinx.coroutines.flow.StateFlow
 @Composable
 fun NowPlayingSheet(
     state: PlayerUiState,
+    positionFlow: StateFlow<Long>,
     energyFlow: StateFlow<AudioEnergy>,
     onCollapse: () -> Unit,
     onSwitchToVinyl: () -> Unit,
@@ -80,8 +82,9 @@ fun NowPlayingSheet(
     val palette = LocalNavaPalette.current
     val isFavorite = track.id in state.favorites
 
+    val positionMs by positionFlow.collectAsState()
     val progress = if (state.durationMs > 0L) {
-        (state.positionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
+        (positionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
     } else {
         0f
     }
@@ -266,7 +269,7 @@ fun NowPlayingSheet(
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
                     Text(
-                        text = formatDuration(state.positionMs),
+                        text = formatDuration(positionMs),
                         style = MaterialTheme.typography.labelMedium,
                         color = palette.onBackgroundMuted
                     )

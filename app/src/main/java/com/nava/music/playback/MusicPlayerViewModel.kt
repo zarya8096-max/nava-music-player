@@ -88,6 +88,9 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     val uiState: StateFlow<PlayerUiState> = _uiState.asStateFlow()
     val audioEnergy: StateFlow<AudioEnergy> = visualizerEngine.energy
 
+    private val _playbackPositionMs = MutableStateFlow(0L)
+    val playbackPositionMs: StateFlow<Long> = _playbackPositionMs.asStateFlow()
+
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var mediaController: MediaController? = null
     private var positionTickerJob: Job? = null
@@ -187,7 +190,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 durationMs = controller.duration.takeIf { d -> d > 0 }
                     ?: matchedTrack?.durationMs
                     ?: it.durationMs,
-                positionMs = controller.currentPosition.coerceAtLeast(0L)
+                positionMs = 0L
             )
         }
 
@@ -212,8 +215,11 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 val controller = mediaController
                 if (controller != null && controller.isPlaying) {
                     val pos = controller.currentPosition.coerceAtLeast(0L)
-                    val dur = controller.duration.takeIf { d -> d > 0 } ?: _uiState.value.durationMs
-                    _uiState.update { it.copy(positionMs = pos, durationMs = dur) }
+                    _playbackPositionMs.value = pos
+                    val dur = controller.duration
+                    if (dur > 0 && dur != _uiState.value.durationMs) {
+                        _uiState.update { it.copy(durationMs = dur) }
+                    }
                 }
                 delay(250L)
             }
@@ -268,6 +274,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                 .build()
         }
 
+        _playbackPositionMs.value = 0L
         _uiState.update {
             it.copy(
                 queue = targetQueue,
@@ -322,8 +329,9 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     fun seekTo(positionMs: Long) {
-        mediaController?.seekTo(positionMs.coerceAtLeast(0L))
-        _uiState.update { it.copy(positionMs = positionMs.coerceAtLeast(0L)) }
+        val target = positionMs.coerceAtLeast(0L)
+        mediaController?.seekTo(target)
+        _playbackPositionMs.value = target
     }
 
     fun toggleShuffle() {

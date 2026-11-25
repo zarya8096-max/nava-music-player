@@ -92,7 +92,7 @@ fun TrackArtwork(
             val request = remember(track.contentUri, track.albumArtUri, decodeSizePx) {
                 ImageRequest.Builder(context)
                     .data(AudioArtKey(track.contentUri, track.albumArtUri, decodeSizePx))
-                    .crossfade(160)
+                    .crossfade(decodeSizePx > 220)
                     .build()
             }
             AsyncImage(
