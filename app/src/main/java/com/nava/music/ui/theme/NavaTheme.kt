@@ -12,61 +12,68 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
+import com.nava.music.R
 import com.nava.music.data.DynamicPalette
 
 val LocalNavaPalette = staticCompositionLocalOf {
     DynamicThemeEngine.resolvePalette(DynamicThemeEngine.defaultSeed, isDark = true)
 }
 
+val VazirmatnFamily = FontFamily(
+    Font(R.font.vazirmatn_regular, FontWeight.Normal),
+    Font(R.font.vazirmatn_medium, FontWeight.Medium),
+    Font(R.font.vazirmatn_semibold, FontWeight.SemiBold),
+    Font(R.font.vazirmatn_bold, FontWeight.Bold)
+)
+
 private val NavaTypography = Typography(
     displaySmall = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = VazirmatnFamily,
         fontWeight = FontWeight.Bold,
-        fontSize = 27.sp,
-        lineHeight = 33.sp,
-        letterSpacing = (-0.6).sp
-    ),
-    headlineMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.Bold,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 26.sp,
+        lineHeight = 34.sp,
         letterSpacing = (-0.4).sp
     ),
-    titleLarge = TextStyle(
-        fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 18.sp,
-        lineHeight = 24.sp,
+    headlineMedium = TextStyle(
+        fontFamily = VazirmatnFamily,
+        fontWeight = FontWeight.Bold,
+        fontSize = 21.sp,
+        lineHeight = 28.sp,
         letterSpacing = (-0.2).sp
     ),
-    titleMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+    titleLarge = TextStyle(
+        fontFamily = VazirmatnFamily,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        lineHeight = 20.sp
+        fontSize = 18.sp,
+        lineHeight = 25.sp
+    ),
+    titleMedium = TextStyle(
+        fontFamily = VazirmatnFamily,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.5.sp,
+        lineHeight = 21.sp
     ),
     bodyLarge = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = VazirmatnFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
+        fontSize = 14.5.sp,
         lineHeight = 22.sp
     ),
     bodyMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = VazirmatnFamily,
         fontWeight = FontWeight.Normal,
-        fontSize = 13.sp,
+        fontSize = 12.5.sp,
         lineHeight = 18.sp
     ),
     labelMedium = TextStyle(
-        fontFamily = FontFamily.SansSerif,
+        fontFamily = VazirmatnFamily,
         fontWeight = FontWeight.Medium,
-        fontSize = 12.sp,
+        fontSize = 11.5.sp,
         lineHeight = 16.sp,
-        letterSpacing = 0.15.sp,
         fontFeatureSettings = "tnum"
     )
 )
@@ -76,7 +83,7 @@ fun NavaTheme(
     palette: DynamicPalette,
     content: @Composable () -> Unit
 ) {
-    val animSpec = tween<Color>(durationMillis = 520)
+    val animSpec = tween<Color>(durationMillis = 480)
 
     val primary by animateColorAsState(palette.primary, animSpec, label = "primary")
     val secondary by animateColorAsState(palette.secondary, animSpec, label = "secondary")

@@ -1,5 +1,10 @@
 package com.nava.music.ui.screens
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -31,61 +36,61 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.Check
-import androidx.compose.material.icons.rounded.BrightnessAuto
 import androidx.compose.material.icons.rounded.Close
-import androidx.compose.material.icons.rounded.DarkMode
 import androidx.compose.material.icons.rounded.Favorite
 import androidx.compose.material.icons.rounded.FavoriteBorder
-import androidx.compose.material.icons.rounded.GraphicEq
+import androidx.compose.material.icons.rounded.Home
 import androidx.compose.material.icons.rounded.LibraryMusic
-import androidx.compose.material.icons.rounded.LightMode
-import androidx.compose.material.icons.rounded.Refresh
+import androidx.compose.material.icons.rounded.MusicNote
+import androidx.compose.material.icons.rounded.PlayArrow
 import androidx.compose.material.icons.rounded.Search
 import androidx.compose.material.icons.rounded.Settings
 import androidx.compose.material.icons.rounded.Shuffle
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.nava.music.data.AppThemeMode
 import com.nava.music.data.DynamicPalette
-import com.nava.music.data.LibraryFilter
 import com.nava.music.data.Track
 import com.nava.music.playback.PlayerUiState
-import com.nava.music.ui.components.MeshBackground
 import com.nava.music.ui.components.MiniPlayerBar
 import com.nava.music.ui.components.TrackArtwork
 import com.nava.music.ui.theme.LocalNavaPalette
 
 /**
- * Clean, airy editorial Library Screen (zero AI-slop neon borders, zero audio-frame recompositions).
+ * Flagship v2.0 Library Screen:
+ * - Clean 3-tab bottom navigation (Home / Songs / Favorites) with strict navigationBarsPadding
+ * - Uncluttered editorial header (wordmark + Search toggle + Settings)
+ * - Bento quick picks, frameless artwork cards, zero harsh list dividers
  */
 @Composable
 fun LibraryScreen(
     state: PlayerUiState,
     onRequestAudioPermission: () -> Unit,
-    onRequestRecordPermission: () -> Unit,
-    onCycleTheme: () -> Unit,
     onRefresh: () -> Unit,
     onSearchChange: (String) -> Unit,
-    onFilterSelect: (LibraryFilter) -> Unit,
     onTrackClick: (Track, List<Track>) -> Unit,
     onShuffleAll: () -> Unit,
+    onPlayAll: () -> Unit,
     onToggleFavorite: (Long) -> Unit,
     onTogglePlayPause: () -> Unit,
     onSkipNext: () -> Unit,
@@ -93,38 +98,52 @@ fun LibraryScreen(
     onOpenSettings: () -> Unit
 ) {
     val palette = LocalNavaPalette.current
+    var selectedTab by remember { mutableIntStateOf(0) } // 0=Home, 1=Songs, 2=Favorites
+    var searchExpanded by remember { mutableStateOf(false) }
 
-    val filteredTracks = remember(state.tracks, state.searchQuery, state.activeFilter, state.favorites) {
-        val base = when (state.activeFilter) {
-            LibraryFilter.ALL -> state.tracks
-            LibraryFilter.FAVORITES -> state.tracks.filter { it.id in state.favorites }
-            LibraryFilter.RECENT -> state.tracks.sortedByDescending { it.dateAddedSec }
-            LibraryFilter.ARTISTS -> state.tracks.sortedBy { it.artist.lowercase() }
-        }
+    val favoriteTracks = remember(state.tracks, state.favorites) {
+        state.tracks.filter { it.id in state.favorites }
+    }
+
+    val searchResults = remember(state.tracks, state.searchQuery) {
         val q = state.searchQuery.trim().lowercase()
-        if (q.isEmpty()) base else base.filter {
+        if (q.isEmpty()) emptyList()
+        else state.tracks.filter {
             it.title.lowercase().contains(q) ||
                 it.artist.lowercase().contains(q) ||
                 it.album.lowercase().contains(q)
         }
     }
 
-    val recentHighlights = remember(state.tracks) { state.tracks.take(10) }
+    val topArtists = remember(state.tracks) {
+        state.tracks
+            .filter { it.artist != "Unknown Artist" }
+            .groupBy { it.artist }
+            .entries
+            .sortedByDescending { it.value.size }
+            .take(8)
+            .map { it.key to it.value }
+    }
 
-    Box(modifier = Modifier.fillMaxSize()) {
-        // Static zero-CPU subtle ambient wash on Library screen
-        MeshBackground(
-            palette = palette,
-            animate = false,
-            intensity = 0.50f
-        )
+    val quickPicks = remember(state.tracks) { state.tracks.take(4) }
+    val recentStrip = remember(state.tracks) {
+        if (state.tracks.size > 4) state.tracks.drop(4).take(10) else state.tracks
+    }
 
+    // Reserve clean clearance above Bottom Navigation + optional MiniPlayer
+    val bottomContentClearance = if (state.currentTrack != null) 168.dp else 94.dp
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(palette.background)
+    ) {
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
         ) {
-            // Minimal Editorial Header
+            // Minimal Editorial Header (Wordmark + ONLY 2 clean icons: Search & Settings)
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -133,82 +152,45 @@ fun LibraryScreen(
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Column {
+                    val heading = when {
+                        searchExpanded -> "جستجو"
+                        selectedTab == 0 -> "Nava"
+                        selectedTab == 1 -> "قطعات"
+                        else -> "علاقه‌مندی‌ها"
+                    }
                     Text(
-                        text = "Nava",
+                        text = heading,
                         style = MaterialTheme.typography.displaySmall,
                         color = palette.onBackground
                     )
-                    Text(
-                        text = if (state.tracks.isEmpty()) {
-                            "کتابخانه موسیقی"
-                        } else {
-                            "${state.tracks.size} قطعه"
-                        },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = palette.onBackgroundMuted
-                    )
-                }
-
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    if (!state.hasRecordPermission) {
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(50))
-                                .background(palette.primary.copy(alpha = 0.14f))
-                                .clickable(onClick = onRequestRecordPermission)
-                                .padding(horizontal = 11.dp, vertical = 7.dp)
-                        ) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Rounded.GraphicEq,
-                                    contentDescription = "Live Bass",
-                                    tint = palette.primary,
-                                    modifier = Modifier.size(15.dp)
-                                )
-                                Text(
-                                    text = "بیس زنده",
-                                    style = MaterialTheme.typography.labelMedium,
-                                    color = palette.primary
-                                )
-                            }
+                    if (!searchExpanded && state.tracks.isNotEmpty()) {
+                        val sub = when (selectedTab) {
+                            2 -> "${favoriteTracks.size} قطعه برگزیده"
+                            else -> "${state.tracks.size} قطعه در حافظه"
                         }
-                    }
-
-                    // 1-Tap System / Light / Dark Theme Cycle
-                    val themeIcon = when (state.themeMode) {
-                        AppThemeMode.SYSTEM -> Icons.Rounded.BrightnessAuto
-                        AppThemeMode.LIGHT -> Icons.Rounded.LightMode
-                        AppThemeMode.DARK -> Icons.Rounded.DarkMode
-                    }
-                    IconButton(
-                        onClick = onCycleTheme,
-                        modifier = Modifier
-                            .size(38.dp)
-                            .clip(CircleShape)
-                            .background(palette.surface)
-                    ) {
-                        Icon(
-                            imageVector = themeIcon,
-                            contentDescription = "Theme: ${state.themeMode.label}",
-                            tint = palette.onBackground,
-                            modifier = Modifier.size(20.dp)
+                        Text(
+                            text = sub,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = palette.onBackgroundMuted
                         )
                     }
+                }
 
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     IconButton(
-                        onClick = onRefresh,
+                        onClick = {
+                            searchExpanded = !searchExpanded
+                            if (!searchExpanded) onSearchChange("")
+                        },
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(42.dp)
                             .clip(CircleShape)
-                            .background(palette.surface)
+                            .background(if (searchExpanded) palette.onBackground else palette.surface)
                     ) {
                         Icon(
-                            imageVector = Icons.Rounded.Refresh,
-                            contentDescription = "Refresh",
-                            tint = palette.onBackground,
+                            imageVector = if (searchExpanded) Icons.Rounded.Close else Icons.Rounded.Search,
+                            contentDescription = "Search",
+                            tint = if (searchExpanded) palette.background else palette.onBackground,
                             modifier = Modifier.size(20.dp)
                         )
                     }
@@ -216,7 +198,7 @@ fun LibraryScreen(
                     IconButton(
                         onClick = onOpenSettings,
                         modifier = Modifier
-                            .size(38.dp)
+                            .size(42.dp)
                             .clip(CircleShape)
                             .background(palette.surface)
                     ) {
@@ -230,118 +212,63 @@ fun LibraryScreen(
                 }
             }
 
-            // Crisp Tonal Search Field
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 20.dp)
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(palette.surface)
-                    .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
+            // Expandable Inline Search Bar
+            AnimatedVisibility(
+                visible = searchExpanded,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
             ) {
-                Icon(
-                    imageVector = Icons.Rounded.Search,
-                    contentDescription = null,
-                    tint = palette.onBackgroundMuted,
-                    modifier = Modifier.size(19.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Box(modifier = Modifier.weight(1f)) {
-                    if (state.searchQuery.isEmpty()) {
-                        Text(
-                            text = "جستجو در آهنگ‌ها، خوانندگان و آلبوم‌ها...",
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = palette.onBackgroundMuted
-                        )
-                    }
-                    BasicTextField(
-                        value = state.searchQuery,
-                        onValueChange = onSearchChange,
-                        singleLine = true,
-                        textStyle = MaterialTheme.typography.bodyLarge.copy(color = palette.onBackground),
-                        cursorBrush = SolidColor(palette.primary),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-                if (state.searchQuery.isNotEmpty()) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(palette.surfaceElevated)
+                        .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     Icon(
-                        imageVector = Icons.Rounded.Close,
-                        contentDescription = "Clear",
+                        imageVector = Icons.Rounded.Search,
+                        contentDescription = null,
                         tint = palette.onBackgroundMuted,
-                        modifier = Modifier
-                            .size(18.dp)
-                            .clickable { onSearchChange("") }
+                        modifier = Modifier.size(18.dp)
                     )
-                }
-            }
-
-            Spacer(modifier = Modifier.height(14.dp))
-
-            // Clean Filter Row
-            LazyRow(
-                contentPadding = PaddingValues(horizontal = 20.dp),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                item {
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(palette.primary)
-                            .clickable(enabled = state.tracks.isNotEmpty(), onClick = onShuffleAll)
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(5.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Rounded.Shuffle,
-                                contentDescription = null,
-                                tint = palette.onPrimary,
-                                modifier = Modifier.size(15.dp)
-                            )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Box(modifier = Modifier.weight(1f)) {
+                        if (state.searchQuery.isEmpty()) {
                             Text(
-                                text = "پخش تصادفی",
-                                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
-                                color = palette.onPrimary
+                                text = "نام آهنگ، خواننده یا آلبوم...",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = palette.onBackgroundMuted
                             )
                         }
+                        BasicTextField(
+                            value = state.searchQuery,
+                            onValueChange = onSearchChange,
+                            singleLine = true,
+                            textStyle = MaterialTheme.typography.bodyLarge.copy(color = palette.onBackground),
+                            cursorBrush = SolidColor(palette.primary),
+                            modifier = Modifier.fillMaxWidth()
+                        )
                     }
-                }
-
-                items(LibraryFilter.entries) { filter ->
-                    val selected = state.activeFilter == filter
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50))
-                            .background(
-                                if (selected) palette.onBackground
-                                else palette.surface
-                            )
-                            .clickable { onFilterSelect(filter) }
-                            .padding(horizontal = 14.dp, vertical = 8.dp)
-                    ) {
-                        Text(
-                            text = filter.label,
-                            style = MaterialTheme.typography.labelMedium.copy(
-                                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
-                            ),
-                            color = if (selected) palette.background else palette.onBackgroundMuted
+                    if (state.searchQuery.isNotEmpty()) {
+                        Icon(
+                            imageVector = Icons.Rounded.Close,
+                            contentDescription = "Clear",
+                            tint = palette.onBackgroundMuted,
+                            modifier = Modifier
+                                .size(18.dp)
+                                .clickable { onSearchChange("") }
                         )
                     }
                 }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
+            // Body Content
             when {
                 !state.hasAudioPermission -> {
-                    PermissionPromptCard(
-                        palette = palette,
-                        onGrantClick = onRequestAudioPermission
-                    )
+                    PermissionPromptCard(palette = palette, onGrantClick = onRequestAudioPermission)
                 }
 
                 state.isLoadingLibrary -> {
@@ -354,20 +281,140 @@ fun LibraryScreen(
                     EmptyLibraryCard(palette = palette, onRefresh = onRefresh)
                 }
 
-                else -> {
+                searchExpanded && state.searchQuery.isNotBlank() -> {
                     LazyColumn(
-                        contentPadding = PaddingValues(
-                            top = 4.dp,
-                            bottom = if (state.currentTrack != null) 114.dp else 28.dp
-                        ),
+                        contentPadding = PaddingValues(top = 4.dp, bottom = bottomContentClearance),
                         modifier = Modifier.weight(1f)
                     ) {
-                        // Clean Frameless Recent Artwork Strip
-                        if (state.searchQuery.isEmpty() && state.activeFilter == LibraryFilter.ALL && recentHighlights.size >= 3) {
-                            item(key = "recent_section") {
+                        items(searchResults, key = { "search_${it.id}" }) { track ->
+                            TrackRowItem(
+                                track = track,
+                                isCurrent = state.currentTrack?.id == track.id,
+                                isPlaying = state.currentTrack?.id == track.id && state.isPlaying,
+                                isFavorite = track.id in state.favorites,
+                                palette = palette,
+                                onClick = { onTrackClick(track, searchResults) },
+                                onFavoriteClick = { onToggleFavorite(track.id) }
+                            )
+                        }
+                    }
+                }
+
+                selectedTab == 0 -> {
+                    // HOME TAB: Action Split + 2x2 Bento Quick Picks + Recent Strip + Top Artists
+                    LazyColumn(
+                        contentPadding = PaddingValues(top = 4.dp, bottom = bottomContentClearance),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        // Primary Expressive Split Actions (One Filled Primary + One Tonal Secondary)
+                        item(key = "home_actions") {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 20.dp, vertical = 6.dp),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(palette.primary)
+                                        .clickable(onClick = onShuffleAll)
+                                        .padding(vertical = 13.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(7.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.Shuffle,
+                                            contentDescription = null,
+                                            tint = palette.onPrimary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                        Text(
+                                            text = "پخش تصادفی",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = palette.onPrimary
+                                        )
+                                    }
+                                }
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(16.dp))
+                                        .background(palette.surface)
+                                        .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
+                                        .clickable(onClick = onPlayAll)
+                                        .padding(vertical = 13.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Rounded.PlayArrow,
+                                            contentDescription = null,
+                                            tint = palette.onBackground,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Text(
+                                            text = "پخش همه",
+                                            style = MaterialTheme.typography.titleMedium,
+                                            color = palette.onBackground
+                                        )
+                                    }
+                                }
+                            }
+                        }
+
+                        // 2x2 Bento Quick Picks Grid
+                        if (quickPicks.size >= 2) {
+                            item(key = "quick_picks") {
+                                Spacer(modifier = Modifier.height(14.dp))
+                                Text(
+                                    text = "پخش سریع",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = palette.onBackground,
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                                )
+                                Column(
+                                    modifier = Modifier.padding(horizontal = 20.dp),
+                                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    quickPicks.chunked(2).forEach { rowItems ->
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            rowItems.forEach { track ->
+                                                BentoQuickTile(
+                                                    track = track,
+                                                    isCurrent = state.currentTrack?.id == track.id,
+                                                    palette = palette,
+                                                    onClick = { onTrackClick(track, state.tracks) },
+                                                    modifier = Modifier.weight(1f)
+                                                )
+                                            }
+                                            if (rowItems.size == 1) {
+                                                Spacer(modifier = Modifier.weight(1f))
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        // Recently Added Horizontal Showcase
+                        if (recentStrip.isNotEmpty()) {
+                            item(key = "recent_showcase") {
+                                Spacer(modifier = Modifier.height(22.dp))
                                 Text(
                                     text = "تازه‌اضافه‌شده",
-                                    style = MaterialTheme.typography.titleMedium,
+                                    style = MaterialTheme.typography.titleLarge,
                                     color = palette.onBackground,
                                     modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
                                 )
@@ -375,8 +422,8 @@ fun LibraryScreen(
                                     contentPadding = PaddingValues(horizontal = 20.dp),
                                     horizontalArrangement = Arrangement.spacedBy(14.dp)
                                 ) {
-                                    items(recentHighlights, key = { "recent_${it.id}" }) { track ->
-                                        RecentTrackTile(
+                                    items(recentStrip, key = { "rec_${it.id}" }) { track ->
+                                        RecentShowcaseCard(
                                             track = track,
                                             isCurrent = state.currentTrack?.id == track.id,
                                             palette = palette,
@@ -384,17 +431,73 @@ fun LibraryScreen(
                                         )
                                     }
                                 }
-                                Spacer(modifier = Modifier.height(20.dp))
-                                Text(
-                                    text = "همه قطعات",
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = palette.onBackground,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 6.dp)
-                                )
                             }
                         }
 
-                        items(filteredTracks, key = { it.id }) { track ->
+                        // Top Artists Strip
+                        if (topArtists.isNotEmpty()) {
+                            item(key = "top_artists") {
+                                Spacer(modifier = Modifier.height(22.dp))
+                                Text(
+                                    text = "خوانندگان برتر",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    color = palette.onBackground,
+                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
+                                )
+                                LazyRow(
+                                    contentPadding = PaddingValues(horizontal = 20.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                ) {
+                                    items(topArtists, key = { it.first }) { (artist, artistTracks) ->
+                                        Row(
+                                            modifier = Modifier
+                                                .clip(RoundedCornerShape(16.dp))
+                                                .background(palette.surfaceElevated)
+                                                .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
+                                                .clickable {
+                                                    artistTracks.firstOrNull()?.let { first ->
+                                                        onTrackClick(first, artistTracks)
+                                                    }
+                                                }
+                                                .padding(horizontal = 12.dp, vertical = 10.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                                        ) {
+                                            TrackArtwork(
+                                                track = artistTracks.first(),
+                                                cornerRadius = 999.dp,
+                                                decodeSizePx = 120,
+                                                modifier = Modifier.size(38.dp)
+                                            )
+                                            Column {
+                                                Text(
+                                                    text = artist,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = palette.onBackground,
+                                                    maxLines = 1,
+                                                    overflow = TextOverflow.Ellipsis
+                                                )
+                                                Text(
+                                                    text = "${artistTracks.size} قطعه",
+                                                    style = MaterialTheme.typography.labelMedium,
+                                                    color = palette.onBackgroundMuted
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                selectedTab == 1 -> {
+                    // SONGS TAB: Clean Full Track List (zero harsh dividers)
+                    LazyColumn(
+                        contentPadding = PaddingValues(top = 4.dp, bottom = bottomContentClearance),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        items(state.tracks, key = { it.id }) { track ->
                             val isCurrent = state.currentTrack?.id == track.id
                             TrackRowItem(
                                 track = track,
@@ -402,44 +505,229 @@ fun LibraryScreen(
                                 isPlaying = isCurrent && state.isPlaying,
                                 isFavorite = track.id in state.favorites,
                                 palette = palette,
-                                onClick = { onTrackClick(track, filteredTracks) },
+                                onClick = { onTrackClick(track, state.tracks) },
                                 onFavoriteClick = { onToggleFavorite(track.id) }
                             )
-                            HorizontalDivider(
-                                color = palette.outline.copy(alpha = 0.55f),
-                                modifier = Modifier.padding(start = 82.dp, end = 20.dp)
-                            )
+                        }
+                    }
+                }
+
+                else -> {
+                    // FAVORITES TAB
+                    if (favoriteTracks.isEmpty()) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .fillMaxWidth()
+                                .padding(bottom = 110.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    imageVector = Icons.Rounded.FavoriteBorder,
+                                    contentDescription = null,
+                                    tint = palette.onBackgroundMuted,
+                                    modifier = Modifier.size(40.dp)
+                                )
+                                Spacer(modifier = Modifier.height(10.dp))
+                                Text(
+                                    text = "هنوز آهنگی به علاقه‌مندی‌ها اضافه نشده",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = palette.onBackgroundMuted
+                                )
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(top = 4.dp, bottom = bottomContentClearance),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(favoriteTracks, key = { "fav_${it.id}" }) { track ->
+                                val isCurrent = state.currentTrack?.id == track.id
+                                TrackRowItem(
+                                    track = track,
+                                    isCurrent = isCurrent,
+                                    isPlaying = isCurrent && state.isPlaying,
+                                    isFavorite = true,
+                                    palette = palette,
+                                    onClick = { onTrackClick(track, favoriteTracks) },
+                                    onFavoriteClick = { onToggleFavorite(track.id) }
+                                )
+                            }
                         }
                     }
                 }
             }
         }
 
-        val current = state.currentTrack
-        if (current != null) {
-            val progress = if (state.durationMs > 0L) {
-                (state.positionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
-            } else {
-                0f
+        // Bottom Dock: Floating MiniPlayer + Clean Navigation Bar with strict navigationBarsPadding
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(
+                    palette.background.copy(alpha = 0.94f)
+                )
+                .navigationBarsPadding()
+        ) {
+            val current = state.currentTrack
+            if (current != null) {
+                val progress = if (state.durationMs > 0L) {
+                    (state.positionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
+                } else {
+                    0f
+                }
+                MiniPlayerBar(
+                    track = current,
+                    isPlaying = state.isPlaying,
+                    progress = progress,
+                    palette = palette,
+                    onTogglePlay = onTogglePlayPause,
+                    onNext = onSkipNext,
+                    onExpand = onOpenNowPlaying
+                )
             }
-            MiniPlayerBar(
-                track = current,
-                isPlaying = state.isPlaying,
-                progress = progress,
-                palette = palette,
-                onTogglePlay = onTogglePlayPause,
-                onNext = onSkipNext,
-                onExpand = onOpenNowPlaying,
+
+            // Sleek Floating Pill Bottom Navigation
+            Row(
                 modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .navigationBarsPadding()
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp)
+                    .shadow(
+                        elevation = if (palette.isDark) 12.dp else 6.dp,
+                        shape = RoundedCornerShape(22.dp),
+                        ambientColor = Color.Black.copy(alpha = 0.25f)
+                    )
+                    .clip(RoundedCornerShape(22.dp))
+                    .background(palette.surfaceElevated)
+                    .border(1.dp, palette.outline, RoundedCornerShape(22.dp))
+                    .padding(horizontal = 8.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                BottomNavItem(
+                    label = "خانه",
+                    icon = Icons.Rounded.Home,
+                    selected = selectedTab == 0 && !searchExpanded,
+                    palette = palette,
+                    onClick = {
+                        searchExpanded = false
+                        selectedTab = 0
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                BottomNavItem(
+                    label = "قطعات",
+                    icon = Icons.Rounded.MusicNote,
+                    selected = selectedTab == 1 && !searchExpanded,
+                    palette = palette,
+                    onClick = {
+                        searchExpanded = false
+                        selectedTab = 1
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+                BottomNavItem(
+                    label = "علاقه‌مندی‌ها",
+                    icon = Icons.Rounded.Favorite,
+                    selected = selectedTab == 2 && !searchExpanded,
+                    palette = palette,
+                    onClick = {
+                        searchExpanded = false
+                        selectedTab = 2
+                    },
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BottomNavItem(
+    label: String,
+    icon: ImageVector,
+    selected: Boolean,
+    palette: DynamicPalette,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (selected) palette.primary.copy(alpha = 0.14f) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(vertical = 9.dp, horizontal = 8.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = if (selected) palette.primary else palette.onBackgroundMuted,
+            modifier = Modifier.size(19.dp)
+        )
+        if (selected) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium.copy(fontWeight = FontWeight.Bold),
+                color = palette.primary,
+                maxLines = 1
             )
         }
     }
 }
 
 @Composable
-private fun RecentTrackTile(
+private fun BentoQuickTile(
+    track: Track,
+    isCurrent: Boolean,
+    palette: DynamicPalette,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (isCurrent) palette.primary.copy(alpha = 0.14f) else palette.surfaceElevated)
+            .border(
+                width = if (isCurrent) 1.dp else 0.6.dp,
+                color = if (isCurrent) palette.primary.copy(alpha = 0.55f) else palette.outline,
+                shape = RoundedCornerShape(16.dp)
+            )
+            .clickable(onClick = onClick)
+            .padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        TrackArtwork(
+            track = track,
+            cornerRadius = 11.dp,
+            decodeSizePx = 150,
+            modifier = Modifier.size(46.dp)
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = track.title,
+                style = MaterialTheme.typography.titleMedium,
+                color = if (isCurrent) palette.primary else palette.onBackground,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = track.artist,
+                style = MaterialTheme.typography.labelMedium,
+                color = palette.onBackgroundMuted,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecentShowcaseCard(
     track: Track,
     isCurrent: Boolean,
     palette: DynamicPalette,
@@ -447,22 +735,22 @@ private fun RecentTrackTile(
 ) {
     Column(
         modifier = Modifier
-            .width(124.dp)
+            .width(130.dp)
             .clickable(onClick = onClick)
     ) {
         TrackArtwork(
             track = track,
-            cornerRadius = 16.dp,
-            decodeSizePx = 280,
+            cornerRadius = 18.dp,
+            decodeSizePx = 300,
             modifier = Modifier
-                .size(124.dp)
+                .size(130.dp)
                 .border(
                     width = if (isCurrent) 2.dp else 0.5.dp,
                     color = if (isCurrent) palette.primary else palette.outline,
-                    shape = RoundedCornerShape(16.dp)
+                    shape = RoundedCornerShape(18.dp)
                 )
         )
-        Spacer(modifier = Modifier.height(7.dp))
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = track.title,
             style = MaterialTheme.typography.titleMedium,
@@ -493,15 +781,17 @@ private fun TrackRowItem(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(if (isCurrent) palette.primary.copy(alpha = 0.08f) else Color.Transparent)
+            .padding(horizontal = 14.dp, vertical = 3.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(if (isCurrent) palette.primary.copy(alpha = 0.10f) else Color.Transparent)
             .clickable(onClick = onClick)
-            .padding(horizontal = 20.dp, vertical = 10.dp),
+            .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(contentAlignment = Alignment.Center) {
             TrackArtwork(
                 track = track,
-                cornerRadius = 11.dp,
+                cornerRadius = 12.dp,
                 decodeSizePx = 150,
                 modifier = Modifier.size(50.dp)
             )
@@ -509,7 +799,7 @@ private fun TrackRowItem(
                 Box(
                     modifier = Modifier
                         .size(50.dp)
-                        .clip(RoundedCornerShape(11.dp))
+                        .clip(RoundedCornerShape(12.dp))
                         .background(Color.Black.copy(alpha = 0.48f)),
                     contentAlignment = Alignment.Center
                 ) {
@@ -530,7 +820,7 @@ private fun TrackRowItem(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "${track.artist} • ${formatDuration(track.durationMs)}",
+                text = track.artist,
                 style = MaterialTheme.typography.bodyMedium,
                 color = palette.onBackgroundMuted,
                 maxLines = 1,
@@ -538,12 +828,23 @@ private fun TrackRowItem(
             )
         }
 
-        IconButton(onClick = onFavoriteClick) {
+        Spacer(modifier = Modifier.width(8.dp))
+
+        Text(
+            text = formatDuration(track.durationMs),
+            style = MaterialTheme.typography.labelMedium,
+            color = palette.onBackgroundMuted
+        )
+
+        IconButton(
+            onClick = onFavoriteClick,
+            modifier = Modifier.size(36.dp)
+        ) {
             Icon(
                 imageVector = if (isFavorite) Icons.Rounded.Favorite else Icons.Rounded.FavoriteBorder,
                 contentDescription = "Favorite",
-                tint = if (isFavorite) palette.primary else palette.onBackgroundMuted.copy(alpha = 0.65f),
-                modifier = Modifier.size(19.dp)
+                tint = if (isFavorite) palette.primary else palette.onBackgroundMuted.copy(alpha = 0.45f),
+                modifier = Modifier.size(18.dp)
             )
         }
     }

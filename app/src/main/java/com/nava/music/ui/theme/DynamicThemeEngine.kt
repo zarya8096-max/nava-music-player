@@ -12,6 +12,7 @@ import androidx.palette.graphics.Palette
 import coil.imageLoader
 import coil.request.ImageRequest
 import coil.request.SuccessResult
+import com.nava.music.data.AudioArtKey
 import com.nava.music.data.DynamicPalette
 import com.nava.music.data.PaletteSeed
 import kotlinx.coroutines.Dispatchers
@@ -48,10 +49,11 @@ object DynamicThemeEngine {
      */
     suspend fun extractSeedFromArtwork(
         context: Context,
+        contentUri: Uri,
         artUri: Uri,
         fallbackSeed: String
     ): PaletteSeed = withContext(Dispatchers.IO) {
-        val bitmap = loadSmallBitmap(context, artUri) ?: return@withContext fallbackSeedForKey(fallbackSeed)
+        val bitmap = loadSmallBitmap(context, contentUri, artUri) ?: return@withContext fallbackSeedForKey(fallbackSeed)
         val palette = Palette.from(bitmap).maximumColorCount(16).generate()
 
         val candidates = listOfNotNull(
@@ -168,11 +170,10 @@ object DynamicThemeEngine {
         )
     }
 
-    private suspend fun loadSmallBitmap(context: Context, uri: Uri): Bitmap? {
+    private suspend fun loadSmallBitmap(context: Context, contentUri: Uri, artUri: Uri): Bitmap? {
         return runCatching {
             val request = ImageRequest.Builder(context)
-                .data(uri)
-                .size(96, 96)
+                .data(AudioArtKey(contentUri, artUri, 96))
                 .allowHardware(false)
                 .build()
             val result = context.imageLoader.execute(request)

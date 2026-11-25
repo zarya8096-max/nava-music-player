@@ -485,6 +485,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         paletteJob = viewModelScope.launch {
             val extracted = DynamicThemeEngine.extractSeedFromArtwork(
                 context = getApplication(),
+                contentUri = track.contentUri,
                 artUri = track.albumArtUri,
                 fallbackSeed = "${track.artist}-${track.title}"
             )

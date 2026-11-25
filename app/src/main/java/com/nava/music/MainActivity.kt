@@ -172,13 +172,8 @@ private fun NavaApp(
                 onRequestAudioPermission = {
                     permissionLauncher.launch(arrayOf(audioPermission, Manifest.permission.RECORD_AUDIO))
                 },
-                onRequestRecordPermission = {
-                    permissionLauncher.launch(arrayOf(Manifest.permission.RECORD_AUDIO))
-                },
-                onCycleTheme = { viewModel.cycleThemeMode() },
                 onRefresh = { viewModel.refreshLibrary() },
                 onSearchChange = { viewModel.updateSearchQuery(it) },
-                onFilterSelect = { viewModel.selectFilter(it) },
                 onTrackClick = { track, list ->
                     viewModel.playTrack(track, list)
                 },
@@ -186,6 +181,12 @@ private fun NavaApp(
                     val shuffled = state.tracks.shuffled()
                     shuffled.firstOrNull()?.let { first ->
                         viewModel.playTrack(first, shuffled)
+                        showNowPlaying = true
+                    }
+                },
+                onPlayAll = {
+                    state.tracks.firstOrNull()?.let { first ->
+                        viewModel.playTrack(first, state.tracks)
                         showNowPlaying = true
                     }
                 },
