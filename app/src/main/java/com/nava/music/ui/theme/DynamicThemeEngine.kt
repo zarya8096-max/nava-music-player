@@ -2,17 +2,13 @@ package com.nava.music.ui.theme
 
 import android.content.Context
 import android.graphics.Bitmap
-import android.graphics.drawable.BitmapDrawable
 import android.net.Uri
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
 import androidx.core.graphics.ColorUtils
 import androidx.palette.graphics.Palette
-import coil.imageLoader
-import coil.request.ImageRequest
-import coil.request.SuccessResult
-import com.nava.music.data.AudioArtKey
+import com.nava.music.data.ArtCacheManager
 import com.nava.music.data.DynamicPalette
 import com.nava.music.data.PaletteSeed
 import kotlinx.coroutines.Dispatchers
@@ -171,17 +167,6 @@ object DynamicThemeEngine {
     }
 
     private suspend fun loadSmallBitmap(context: Context, contentUri: Uri, artUri: Uri): Bitmap? {
-        return runCatching {
-            val request = ImageRequest.Builder(context)
-                .data(AudioArtKey(contentUri, artUri, 96))
-                .allowHardware(false)
-                .build()
-            val result = context.imageLoader.execute(request)
-            if (result is SuccessResult) {
-                (result.drawable as? BitmapDrawable)?.bitmap
-            } else {
-                null
-            }
-        }.getOrNull()
+        return ArtCacheManager.loadFullBitmap(context, contentUri, artUri, 96)
     }
 }
