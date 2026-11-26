@@ -401,11 +401,11 @@ private fun VinylControlsColumn(
                     .shadow(
                         elevation = 12.dp,
                         shape = CircleShape,
-                        ambientColor = palette.primary.copy(alpha = 0.45f),
-                        spotColor = palette.primary.copy(alpha = 0.45f)
+                        ambientColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.55f),
+                        spotColor = androidx.compose.ui.graphics.Color.Black.copy(alpha = 0.65f)
                     )
                     .clip(CircleShape)
-                    .background(palette.primary)
+                    .background(com.nava.music.ui.components.primaryFill(palette))
                     .clickable(onClick = onTogglePlayPause),
                 contentAlignment = Alignment.Center
             ) {

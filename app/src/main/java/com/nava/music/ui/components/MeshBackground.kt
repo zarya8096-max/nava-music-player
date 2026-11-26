@@ -7,11 +7,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
 import com.nava.music.data.DynamicPalette
 
 /**
- * Clean, architectural studio-light backdrop — zero lava-lamp blobs, zero per-frame CPU overhead.
- * Subtle cool overhead wash tinted softly by the active track's palette.
+ * Cold studio backdrop: a tight overhead key light, a faint measuring grid that fades out
+ * toward the bottom, and a vignette that pulls the eye to the centre.
+ * Everything is static per palette, so there is zero per-frame cost.
  */
 @Composable
 fun MeshBackground(
@@ -20,38 +22,76 @@ fun MeshBackground(
     intensity: Float = 1f,
     modifier: Modifier = Modifier
 ) {
-    val topAlpha = if (palette.isDark) 0.22f * intensity else 0.11f * intensity
-    val sideAlpha = if (palette.isDark) 0.14f * intensity else 0.07f * intensity
+    val keyAlpha = if (palette.isDark) 0.20f * intensity else 0.10f * intensity
+    val rimAlpha = if (palette.isDark) 0.10f * intensity else 0.05f * intensity
+    val gridAlpha = if (palette.isDark) 0.045f else 0.05f
+    val gridColor = palette.onBackground
 
     Canvas(modifier = modifier.fillMaxSize()) {
         drawRect(color = palette.background)
 
-        // Subtle overhead architectural spotlight
+        // Key light from above, narrow and cool
+        val keyCenter = Offset(size.width * 0.5f, size.height * 0.10f)
+        val keyRadius = size.maxDimension * 0.55f
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(
-                    palette.primary.copy(alpha = topAlpha),
-                    Color.Transparent
-                ),
-                center = Offset(size.width * 0.5f, size.height * 0.12f),
-                radius = size.maxDimension * 0.68f
+                colors = listOf(palette.primary.copy(alpha = keyAlpha), Color.Transparent),
+                center = keyCenter,
+                radius = keyRadius
             ),
-            radius = size.maxDimension * 0.68f,
-            center = Offset(size.width * 0.5f, size.height * 0.12f)
+            radius = keyRadius,
+            center = keyCenter
         )
 
-        // Secondary cool edge wash
+        // Faint rim light low on the right, from the secondary swatch
+        val rimCenter = Offset(size.width * 1.02f, size.height * 0.70f)
+        val rimRadius = size.maxDimension * 0.42f
         drawCircle(
             brush = Brush.radialGradient(
-                colors = listOf(
-                    palette.secondary.copy(alpha = sideAlpha),
-                    Color.Transparent
-                ),
-                center = Offset(size.width * 0.88f, size.height * 0.62f),
-                radius = size.maxDimension * 0.52f
+                colors = listOf(palette.secondary.copy(alpha = rimAlpha), Color.Transparent),
+                center = rimCenter,
+                radius = rimRadius
             ),
-            radius = size.maxDimension * 0.52f,
-            center = Offset(size.width * 0.88f, size.height * 0.62f)
+            radius = rimRadius,
+            center = rimCenter
+        )
+
+        // Measuring grid: hairlines every 36dp, fading to nothing by 70% height
+        val step = 36.dp.toPx()
+        val fadeEnd = size.height * 0.70f
+        var y = step
+        while (y < fadeEnd) {
+            val a = gridAlpha * (1f - y / fadeEnd)
+            drawLine(
+                color = gridColor.copy(alpha = a),
+                start = Offset(0f, y),
+                end = Offset(size.width, y),
+                strokeWidth = 0.6.dp.toPx()
+            )
+            y += step
+        }
+        var x = step / 2f
+        while (x < size.width) {
+            drawLine(
+                brush = Brush.verticalGradient(
+                    colors = listOf(gridColor.copy(alpha = gridAlpha), Color.Transparent),
+                    startY = 0f,
+                    endY = fadeEnd
+                ),
+                start = Offset(x, 0f),
+                end = Offset(x, fadeEnd),
+                strokeWidth = 0.6.dp.toPx()
+            )
+            x += step
+        }
+
+        // Vignette
+        drawRect(
+            brush = Brush.radialGradient(
+                colors = listOf(Color.Transparent, Color.Black.copy(alpha = if (palette.isDark) 0.38f else 0.06f)),
+                center = Offset(size.width / 2f, size.height * 0.45f),
+                radius = size.maxDimension * 0.78f
+            )
         )
     }
 }

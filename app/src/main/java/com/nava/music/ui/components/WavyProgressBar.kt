@@ -101,15 +101,26 @@ fun WavyProgressBar(
         val thumbX = (size.width * displayFraction).coerceIn(6.dp.toPx(), size.width - 6.dp.toPx())
         val bassAmp = if (isPlaying) energy.midBass else 0f
 
-        drawLine(
-            color = palette.onBackground.copy(alpha = if (palette.isDark) 0.18f else 0.14f),
-            start = Offset(thumbX, midY),
-            end = Offset(size.width, midY),
-            strokeWidth = 3.2.dp.toPx(),
-            cap = StrokeCap.Round
-        )
+        // Remaining track: a ruler of fine ticks instead of a flat bar
+        val tickGap = 7.dp.toPx()
+        val tickColor = palette.onBackground.copy(alpha = if (palette.isDark) 0.26f else 0.22f)
+        var tx = thumbX + tickGap
+        var tickIndex = 0
+        while (tx <= size.width) {
+            val major = tickIndex % 5 == 4
+            val h = if (major) 7.dp.toPx() else 4.dp.toPx()
+            drawLine(
+                color = if (major) tickColor else tickColor.copy(alpha = tickColor.alpha * 0.65f),
+                start = Offset(tx, midY - h / 2f),
+                end = Offset(tx, midY + h / 2f),
+                strokeWidth = 1.dp.toPx(),
+                cap = StrokeCap.Round
+            )
+            tx += tickGap
+            tickIndex++
+        }
 
-        val amplitude = (3.2.dp.toPx() + bassAmp * 2.4.dp.toPx()) * waveHeightFactor
+        val amplitude = (2.6.dp.toPx() + bassAmp * 2.2.dp.toPx()) * waveHeightFactor
         val wavelength = 28.dp.toPx()
         val path = Path()
         val step = 4f
@@ -125,19 +136,25 @@ fun WavyProgressBar(
         drawPath(
             path = path,
             brush = Brush.horizontalGradient(listOf(palette.primary, palette.secondary)),
-            style = Stroke(width = 3.5.dp.toPx(), cap = StrokeCap.Round)
+            style = Stroke(width = 2.6.dp.toPx(), cap = StrokeCap.Round)
         )
 
-        val thumbRadius = if (isDragging) 8.dp.toPx() else 6.dp.toPx()
-        drawCircle(
-            color = palette.primary.copy(alpha = 0.28f),
-            radius = thumbRadius * 1.65f,
-            center = Offset(thumbX, midY)
+        // Needle thumb: a slim vertical blade, wider while scrubbing
+        val needleHalf = if (isDragging) 13.dp.toPx() else 10.dp.toPx()
+        val needleWidth = if (isDragging) 4.dp.toPx() else 3.dp.toPx()
+        drawLine(
+            color = palette.primary.copy(alpha = 0.35f),
+            start = Offset(thumbX, midY - needleHalf - 2.dp.toPx()),
+            end = Offset(thumbX, midY + needleHalf + 2.dp.toPx()),
+            strokeWidth = needleWidth + 4.dp.toPx(),
+            cap = StrokeCap.Round
         )
-        drawCircle(
+        drawLine(
             color = palette.onBackground,
-            radius = thumbRadius,
-            center = Offset(thumbX, midY)
+            start = Offset(thumbX, midY - needleHalf),
+            end = Offset(thumbX, midY + needleHalf),
+            strokeWidth = needleWidth,
+            cap = StrokeCap.Round
         )
     }
 }

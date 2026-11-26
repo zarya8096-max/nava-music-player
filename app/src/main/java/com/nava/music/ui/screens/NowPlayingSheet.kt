@@ -47,6 +47,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -56,6 +58,8 @@ import com.nava.music.playback.PlayerUiState
 import com.nava.music.ui.components.BassReactiveArtwork
 import com.nava.music.ui.components.MeshBackground
 import com.nava.music.ui.components.WavyProgressBar
+import com.nava.music.ui.components.instrumentPanel
+import com.nava.music.ui.components.primaryFill
 import com.nava.music.ui.theme.LocalNavaPalette
 import kotlinx.coroutines.flow.StateFlow
 
@@ -309,13 +313,20 @@ fun NowPlayingSheet(
                         modifier = Modifier
                             .size(72.dp)
                             .shadow(
-                                elevation = 14.dp,
+                                elevation = 12.dp,
                                 shape = RoundedCornerShape(playCorner),
-                                ambientColor = palette.primary.copy(alpha = 0.5f),
-                                spotColor = palette.primary.copy(alpha = 0.5f)
+                                ambientColor = Color.Black.copy(alpha = 0.55f),
+                                spotColor = Color.Black.copy(alpha = 0.65f)
                             )
                             .clip(RoundedCornerShape(playCorner))
-                            .background(palette.primary)
+                            .background(primaryFill(palette))
+                            .border(
+                                1.dp,
+                                Brush.verticalGradient(
+                                    listOf(Color.White.copy(alpha = 0.40f), Color.White.copy(alpha = 0.04f))
+                                ),
+                                RoundedCornerShape(playCorner)
+                            )
                             .clickable(onClick = onTogglePlayPause),
                         contentAlignment = Alignment.Center
                     ) {
@@ -360,9 +371,7 @@ fun NowPlayingSheet(
                     Box(
                         modifier = Modifier
                             .weight(1f)
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(palette.surfaceElevated)
-                            .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
+                            .instrumentPanel(palette, RoundedCornerShape(16.dp))
                             .clickable(onClick = onOpenLyrics)
                             .padding(vertical = 13.dp),
                         contentAlignment = Alignment.Center
@@ -387,9 +396,7 @@ fun NowPlayingSheet(
 
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(16.dp))
-                            .background(palette.surfaceElevated)
-                            .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
+                            .instrumentPanel(palette, RoundedCornerShape(16.dp))
                             .clickable(onClick = onOpenQueue)
                             .padding(horizontal = 18.dp, vertical = 13.dp),
                         contentAlignment = Alignment.Center

@@ -61,12 +61,10 @@ fun MiniPlayerBar(
             .shadow(
                 elevation = if (palette.isDark) 18.dp else 10.dp,
                 shape = shape,
-                ambientColor = Color.Black.copy(alpha = if (palette.isDark) 0.55f else 0.16f),
-                spotColor = palette.primary.copy(alpha = 0.25f)
+                ambientColor = Color.Black.copy(alpha = if (palette.isDark) 0.60f else 0.16f),
+                spotColor = Color.Black.copy(alpha = if (palette.isDark) 0.70f else 0.22f)
             )
-            .clip(shape)
-            .background(palette.surfaceElevated)
-            .border(width = 1.dp, color = palette.outline, shape = shape)
+            .instrumentPanel(palette, shape)
             .clickable(onClick = onExpand)
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -116,7 +114,7 @@ fun MiniPlayerBar(
                     modifier = Modifier
                         .size(40.dp)
                         .clip(CircleShape)
-                        .background(palette.primary)
+                        .background(primaryFill(palette))
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Rounded.Pause else Icons.Rounded.PlayArrow,

@@ -74,6 +74,9 @@ import com.nava.music.data.Track
 import com.nava.music.playback.PlayerUiState
 import com.nava.music.ui.components.MiniPlayerBar
 import com.nava.music.ui.components.TrackArtwork
+import com.nava.music.ui.components.instrumentPanel
+import com.nava.music.ui.components.primaryFill
+import androidx.compose.ui.graphics.Brush
 import com.nava.music.ui.theme.LocalNavaPalette
 import kotlinx.coroutines.flow.StateFlow
 
@@ -320,7 +323,14 @@ fun LibraryScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .clip(RoundedCornerShape(16.dp))
-                                        .background(palette.primary)
+                                        .background(primaryFill(palette))
+                                        .border(
+                                            1.dp,
+                                            Brush.verticalGradient(
+                                                listOf(Color.White.copy(alpha = 0.34f), Color.White.copy(alpha = 0.03f))
+                                            ),
+                                            RoundedCornerShape(16.dp)
+                                        )
                                         .clickable(onClick = onShuffleAll)
                                         .padding(vertical = 13.dp),
                                     contentAlignment = Alignment.Center
@@ -346,9 +356,7 @@ fun LibraryScreen(
                                 Box(
                                     modifier = Modifier
                                         .weight(1f)
-                                        .clip(RoundedCornerShape(16.dp))
-                                        .background(palette.surface)
-                                        .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
+                                        .instrumentPanel(palette, RoundedCornerShape(16.dp), elevated = false)
                                         .clickable(onClick = onPlayAll)
                                         .padding(vertical = 13.dp),
                                     contentAlignment = Alignment.Center
@@ -377,12 +385,7 @@ fun LibraryScreen(
                         if (quickPicks.size >= 2) {
                             item(key = "quick_picks") {
                                 Spacer(modifier = Modifier.height(14.dp))
-                                Text(
-                                    text = "پخش سریع",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = palette.onBackground,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                                )
+                                SectionHeader(text = "پخش سریع", palette = palette)
                                 Column(
                                     modifier = Modifier.padding(horizontal = 20.dp),
                                     verticalArrangement = Arrangement.spacedBy(10.dp)
@@ -414,12 +417,7 @@ fun LibraryScreen(
                         if (recentStrip.isNotEmpty()) {
                             item(key = "recent_showcase") {
                                 Spacer(modifier = Modifier.height(22.dp))
-                                Text(
-                                    text = "تازه‌اضافه‌شده",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = palette.onBackground,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                                )
+                                SectionHeader(text = "تازه‌اضافه‌شده", palette = palette)
                                 LazyRow(
                                     contentPadding = PaddingValues(horizontal = 20.dp),
                                     horizontalArrangement = Arrangement.spacedBy(14.dp)
@@ -440,12 +438,7 @@ fun LibraryScreen(
                         if (topArtists.isNotEmpty()) {
                             item(key = "top_artists") {
                                 Spacer(modifier = Modifier.height(22.dp))
-                                Text(
-                                    text = "خوانندگان برتر",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    color = palette.onBackground,
-                                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
-                                )
+                                SectionHeader(text = "خوانندگان برتر", palette = palette)
                                 LazyRow(
                                     contentPadding = PaddingValues(horizontal = 20.dp),
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
@@ -453,9 +446,7 @@ fun LibraryScreen(
                                     items(topArtists, key = { it.first }) { (artist, artistTracks) ->
                                         Row(
                                             modifier = Modifier
-                                                .clip(RoundedCornerShape(16.dp))
-                                                .background(palette.surfaceElevated)
-                                                .border(1.dp, palette.outline, RoundedCornerShape(16.dp))
+                                                .instrumentPanel(palette, RoundedCornerShape(16.dp))
                                                 .clickable {
                                                     artistTracks.firstOrNull()?.let { first ->
                                                         onTrackClick(first, artistTracks)
@@ -568,7 +559,13 @@ fun LibraryScreen(
                 .align(Alignment.BottomCenter)
                 .fillMaxWidth()
                 .background(
-                    palette.background.copy(alpha = 0.94f)
+                    Brush.verticalGradient(
+                        colors = listOf(
+                            Color.Transparent,
+                            palette.background.copy(alpha = 0.92f),
+                            palette.background
+                        )
+                    )
                 )
                 .navigationBarsPadding()
         ) {
@@ -592,13 +589,12 @@ fun LibraryScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp, vertical = 8.dp)
                     .shadow(
-                        elevation = if (palette.isDark) 12.dp else 6.dp,
+                        elevation = if (palette.isDark) 14.dp else 6.dp,
                         shape = RoundedCornerShape(22.dp),
-                        ambientColor = Color.Black.copy(alpha = 0.25f)
+                        ambientColor = Color.Black.copy(alpha = if (palette.isDark) 0.55f else 0.18f),
+                        spotColor = Color.Black.copy(alpha = if (palette.isDark) 0.60f else 0.20f)
                     )
-                    .clip(RoundedCornerShape(22.dp))
-                    .background(palette.surfaceElevated)
-                    .border(1.dp, palette.outline, RoundedCornerShape(22.dp))
+                    .instrumentPanel(palette, RoundedCornerShape(22.dp))
                     .padding(horizontal = 8.dp, vertical = 6.dp),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically
@@ -642,6 +638,28 @@ fun LibraryScreen(
 }
 
 @Composable
+private fun SectionHeader(text: String, palette: DynamicPalette) {
+    Row(
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(3.dp)
+                .height(16.dp)
+                .clip(RoundedCornerShape(2.dp))
+                .background(primaryFill(palette))
+        )
+        Spacer(modifier = Modifier.width(10.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.titleLarge,
+            color = palette.onBackground
+        )
+    }
+}
+
+@Composable
 private fun BottomNavItem(
     label: String,
     icon: ImageVector,
@@ -653,7 +671,12 @@ private fun BottomNavItem(
     Row(
         modifier = modifier
             .clip(RoundedCornerShape(16.dp))
-            .background(if (selected) palette.primary.copy(alpha = 0.14f) else Color.Transparent)
+            .background(if (selected) palette.primary.copy(alpha = 0.13f) else Color.Transparent)
+            .border(
+                width = 1.dp,
+                color = if (selected) palette.primary.copy(alpha = 0.34f) else Color.Transparent,
+                shape = RoundedCornerShape(16.dp)
+            )
             .clickable(onClick = onClick)
             .padding(vertical = 9.dp, horizontal = 8.dp),
         horizontalArrangement = Arrangement.Center,
@@ -687,12 +710,15 @@ private fun BentoQuickTile(
 ) {
     Row(
         modifier = modifier
-            .clip(RoundedCornerShape(16.dp))
-            .background(if (isCurrent) palette.primary.copy(alpha = 0.14f) else palette.surfaceElevated)
-            .border(
-                width = if (isCurrent) 1.dp else 0.6.dp,
-                color = if (isCurrent) palette.primary.copy(alpha = 0.55f) else palette.outline,
-                shape = RoundedCornerShape(16.dp)
+            .then(
+                if (isCurrent) {
+                    Modifier
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(palette.primary.copy(alpha = 0.13f))
+                        .border(1.dp, palette.primary.copy(alpha = 0.50f), RoundedCornerShape(16.dp))
+                } else {
+                    Modifier.instrumentPanel(palette, RoundedCornerShape(16.dp))
+                }
             )
             .clickable(onClick = onClick)
             .padding(8.dp),
@@ -743,8 +769,17 @@ private fun RecentShowcaseCard(
             modifier = Modifier
                 .size(130.dp)
                 .border(
-                    width = if (isCurrent) 2.dp else 0.5.dp,
-                    color = if (isCurrent) palette.primary else palette.outline,
+                    width = if (isCurrent) 1.5.dp else 1.dp,
+                    brush = if (isCurrent) {
+                        Brush.verticalGradient(listOf(palette.primary, palette.primary.copy(alpha = 0.35f)))
+                    } else {
+                        Brush.verticalGradient(
+                            listOf(
+                                Color.White.copy(alpha = if (palette.isDark) 0.18f else 0.9f),
+                                Color.White.copy(alpha = 0.02f)
+                            )
+                        )
+                    },
                     shape = RoundedCornerShape(18.dp)
                 )
         )
@@ -781,7 +816,12 @@ private fun TrackRowItem(
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 3.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(if (isCurrent) palette.primary.copy(alpha = 0.10f) else Color.Transparent)
+            .background(if (isCurrent) palette.primary.copy(alpha = 0.09f) else Color.Transparent)
+            .border(
+                width = 1.dp,
+                color = if (isCurrent) palette.primary.copy(alpha = 0.22f) else Color.Transparent,
+                shape = RoundedCornerShape(16.dp)
+            )
             .clickable(onClick = onClick)
             .padding(horizontal = 8.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
