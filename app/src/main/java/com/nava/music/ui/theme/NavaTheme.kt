@@ -83,7 +83,7 @@ fun NavaTheme(
     palette: DynamicPalette,
     content: @Composable () -> Unit
 ) {
-    val animSpec = tween<Color>(durationMillis = 480)
+    val animSpec = tween<Color>(durationMillis = 220)
 
     val primary by animateColorAsState(palette.primary, animSpec, label = "primary")
     val secondary by animateColorAsState(palette.secondary, animSpec, label = "secondary")

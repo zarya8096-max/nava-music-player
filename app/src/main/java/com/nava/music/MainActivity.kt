@@ -114,6 +114,10 @@ private fun NavaApp(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    LaunchedEffect(isAppForeground) {
+        viewModel.setUiForeground(isAppForeground)
+    }
+
     LaunchedEffect(isAppForeground, showNowPlaying, showLyrics, showQueue, showSettings) {
         val vizVisible = isAppForeground && showNowPlaying && !showLyrics && !showQueue && !showSettings
         viewModel.setVisualizerUiActive(vizVisible)

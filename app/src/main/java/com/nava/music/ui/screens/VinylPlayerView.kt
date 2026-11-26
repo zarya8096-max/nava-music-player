@@ -46,6 +46,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.State
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +56,7 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -352,9 +355,8 @@ private fun VinylControlsColumn(
             }
         }
 
-        val positionMs by positionFlow.collectAsState()
         TickWaveformScrubber(
-            positionMs = positionMs,
+            positionFlow = positionFlow,
             durationMs = state.durationMs,
             isPlaying = state.isPlaying,
             energyFlow = energyFlow,
@@ -561,9 +563,9 @@ private fun NowSpinningBadge(
     isPlaying: Boolean,
     palette: DynamicPalette
 ) {
-    val dotAlpha = if (isPlaying) {
+    val dotAlpha: State<Float> = if (isPlaying) {
         val infinite = rememberInfiniteTransition(label = "spinDot")
-        val a by infinite.animateFloat(
+        infinite.animateFloat(
             initialValue = 0.35f,
             targetValue = 1f,
             animationSpec = infiniteRepeatable(
@@ -572,9 +574,8 @@ private fun NowSpinningBadge(
             ),
             label = "dotAlpha"
         )
-        a
     } else {
-        0.35f
+        remember { mutableStateOf(0.35f) }
     }
 
     Row(
@@ -589,9 +590,10 @@ private fun NowSpinningBadge(
         Box(
             modifier = Modifier
                 .size(7.dp)
+                .graphicsLayer { alpha = if (isPlaying) dotAlpha.value else 1f }
                 .clip(CircleShape)
                 .background(
-                    if (isPlaying) palette.primary.copy(alpha = dotAlpha)
+                    if (isPlaying) palette.primary
                     else palette.onBackgroundMuted.copy(alpha = 0.45f)
                 )
         )

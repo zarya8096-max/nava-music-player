@@ -64,45 +64,41 @@ fun VinylTurntableStage(
     atmosphere: VinylAtmosphere,
     modifier: Modifier = Modifier
 ) {
-    val energy by energyFlow.collectAsState()
+    val energyState = energyFlow.collectAsState()
 
-    var vinylRotationDeg by remember { mutableFloatStateOf(0f) }
-    LaunchedEffect(isPlaying) {
+    // Both values are only ever READ inside draw / graphicsLayer lambdas, so the
+    // 60fps clock below invalidates the draw phase only and never recomposes the stage.
+    val vinylRotationState = remember { mutableFloatStateOf(0f) }
+    val orbitPhaseState = remember { mutableFloatStateOf(0.5f) }
+    LaunchedEffect(isPlaying, atmosphere) {
         if (!isPlaying) return@LaunchedEffect
+        val driveOrbit = atmosphere != VinylAtmosphere.GALLERY
+        val twoPi = (2f * PI).toFloat()
         var lastNanos = 0L
         while (true) {
             withFrameNanos { frameNanos ->
                 if (lastNanos != 0L) {
                     val dtSec = (frameNanos - lastNanos) / 1_000_000_000f
-                    vinylRotationDeg = (vinylRotationDeg + dtSec * 38f) % 360f
+                    vinylRotationState.floatValue = (vinylRotationState.floatValue + dtSec * 38f) % 360f
+                    if (driveOrbit) {
+                        orbitPhaseState.floatValue = (orbitPhaseState.floatValue + dtSec * twoPi / 15f) % twoPi
+                    }
                 }
                 lastNanos = frameNanos
             }
         }
     }
 
-    val tonearmAngle by animateFloatAsState(
+    val tonearmAngleState = animateFloatAsState(
         targetValue = if (isPlaying) 23f else 2f,
         animationSpec = spring(dampingRatio = 0.80f, stiffness = Spring.StiffnessLow),
         label = "tonearmAngle"
     )
 
-    val bassPulse = if (isPlaying) (energy.beatPulse * 0.7f + energy.subBass * 0.3f) else 0f
-
-    val orbitPhase = if (isPlaying && atmosphere != VinylAtmosphere.GALLERY) {
-        val infinite = rememberInfiniteTransition(label = "orbitFlow")
-        val p by infinite.animateFloat(
-            initialValue = 0f,
-            targetValue = (2f * PI).toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 15000, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "orbitPhase"
-        )
-        p
-    } else {
-        0.5f
+    fun currentBassPulse(): Float {
+        if (!isPlaying) return 0f
+        val e = energyState.value
+        return e.beatPulse * 0.7f + e.subBass * 0.3f
     }
 
     BoxWithConstraints(
@@ -117,6 +113,8 @@ fun VinylTurntableStage(
         // 1) Delicate Orbital Aurora Filaments
         if (atmosphere != VinylAtmosphere.GALLERY) {
             Canvas(modifier = Modifier.fillMaxSize()) {
+                val bassPulse = currentBassPulse()
+                val orbitPhase = if (isPlaying) orbitPhaseState.floatValue else 0.5f
                 val discCenter = Offset(size.width * 0.56f, size.height * 0.50f)
                 val baseR = discSize.toPx() * 0.52f
                 val pulseExpand = 1f + bassPulse * 0.08f
@@ -206,7 +204,7 @@ fun VinylTurntableStage(
                 .offset(x = discSize * 0.09f)
                 .size(discSize)
                 .graphicsLayer {
-                    val s = 1f + bassPulse * 0.02f
+                    val s = 1f + currentBassPulse() * 0.02f
                     scaleX = s
                     scaleY = s
                 }
@@ -275,7 +273,7 @@ fun VinylTurntableStage(
             Box(
                 modifier = Modifier
                     .size(discSize * 0.37f)
-                    .graphicsLayer { rotationZ = vinylRotationDeg }
+                    .graphicsLayer { rotationZ = vinylRotationState.floatValue }
                     .clip(CircleShape)
                     .border(1.5.dp, Color.Black.copy(alpha = 0.65f), CircleShape),
                 contentAlignment = Alignment.Center
@@ -299,6 +297,8 @@ fun VinylTurntableStage(
                 .offset(x = discSize * 0.09f)
                 .size(discSize)
         ) {
+            val bassPulse = currentBassPulse()
+            val tonearmAngle = tonearmAngleState.value
             val pivot = Offset(size.width * 0.92f, size.height * 0.14f)
 
             drawCircle(

@@ -1,0 +1,11 @@
+# Hand-written baseline profile: AOT-compile app, Compose and Media3 hot paths on install so the
+# first launch / first scroll / first Now Playing open are not JIT-interpreted (the usual
+# "laggy for the first minute" on release Compose apps).
+HSPLcom/nava/music/**;->**(**)**
+Lcom/nava/music/**;
+HSPLandroidx/compose/**;->**(**)**
+Landroidx/compose/**;
+HSPLandroidx/media3/exoplayer/**;->**(**)**
+HSPLandroidx/media3/session/**;->**(**)**
+HSPLandroidx/lifecycle/**;->**(**)**
+HSPLandroidx/activity/**;->**(**)**

@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
@@ -57,17 +58,17 @@ fun BassReactiveArtwork(
     visualizerStyle: VisualizerStyle,
     modifier: Modifier = Modifier
 ) {
-    val energy by energyFlow.collectAsState()
-    val activeBeat = if (isPlaying) energy.beatPulse else 0f
-    val activeSub = if (isPlaying) energy.subBass else 0f
+    // Audio energy is read ONLY inside draw / graphicsLayer lambdas below, so a new FFT frame
+    // invalidates the draw phase of these leaves and never recomposes (or re-lays-out) anything.
+    val energyState = energyFlow.collectAsState()
 
-    val coverScale by animateFloatAsState(
-        targetValue = if (isPlaying) 1f + (activeBeat * 0.030f) + (activeSub * 0.012f) else 0.95f,
+    val playFactor = animateFloatAsState(
+        targetValue = if (isPlaying) 1f else 0f,
         animationSpec = spring(
             dampingRatio = Spring.DampingRatioMediumBouncy,
             stiffness = Spring.StiffnessMediumLow
         ),
-        label = "coverBassScale"
+        label = "coverPlayFactor"
     )
 
     val coverShape = RoundedCornerShape(22.dp)
@@ -85,6 +86,8 @@ fun BassReactiveArtwork(
         ) {
             if (visualizerStyle == VisualizerStyle.HALO_AND_WAVE || visualizerStyle == VisualizerStyle.PULSE_HALO) {
                 Canvas(modifier = Modifier.fillMaxSize()) {
+                    val activeBeat = if (isPlaying) energyState.value.beatPulse else 0f
+                    val activeSub = if (isPlaying) energyState.value.subBass else 0f
                     val center = Offset(size.width / 2f, size.height / 2f)
                     val coverSide = size.minDimension * 0.84f
                     val baseRadius = 22.dp.toPx()
@@ -115,8 +118,11 @@ fun BassReactiveArtwork(
                 modifier = Modifier
                     .fillMaxSize(0.84f)
                     .graphicsLayer {
-                        scaleX = coverScale
-                        scaleY = coverScale
+                        val e = energyState.value
+                        val live = 1f + e.beatPulse * 0.030f + e.subBass * 0.012f
+                        val s = 0.95f + (live - 0.95f) * playFactor.value
+                        scaleX = s
+                        scaleY = s
                     }
                     .shadow(
                         elevation = if (palette.isDark) 26.dp else 18.dp,
@@ -137,7 +143,7 @@ fun BassReactiveArtwork(
         if (visualizerStyle == VisualizerStyle.HALO_AND_WAVE || visualizerStyle == VisualizerStyle.FLUID_SPECTRUM) {
             Spacer(modifier = Modifier.height(16.dp))
             LedSpectrumStrip(
-                spectrum = energy.spectrum,
+                energyState = energyState,
                 palette = palette,
                 isPlaying = isPlaying,
                 modifier = Modifier
@@ -154,19 +160,20 @@ private const val MAX_BARS = 64
 /** Segmented analyser: unlit cells stay faintly visible so the instrument reads even when idle. */
 @Composable
 private fun LedSpectrumStrip(
-    spectrum: List<Float>,
+    energyState: State<AudioEnergy>,
     palette: DynamicPalette,
     isPlaying: Boolean,
     modifier: Modifier = Modifier
 ) {
     val peaks = remember { FloatArray(MAX_BARS) }
-    val count = spectrum.size.coerceIn(1, MAX_BARS)
-    for (i in 0 until count) {
-        val level = if (isPlaying) spectrum.getOrElse(i) { 0f } else 0f
-        peaks[i] = max(level, peaks[i] - 0.03f)
-    }
 
     Canvas(modifier = modifier.padding(horizontal = 2.dp)) {
+        val spectrum = energyState.value.spectrum
+        val count = spectrum.size.coerceIn(1, MAX_BARS)
+        for (i in 0 until count) {
+            val level = if (isPlaying) spectrum.getOrElse(i) { 0f } else 0f
+            peaks[i] = max(level, peaks[i] - 0.03f)
+        }
         val slot = size.width / count
         val barWidth = (slot * 0.46f).coerceIn(2.dp.toPx(), 5.dp.toPx())
         val cellGap = 2.dp.toPx()

@@ -53,6 +53,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.nava.music.data.AudioEnergy
+import com.nava.music.data.DynamicPalette
 import com.nava.music.data.RepeatMode
 import com.nava.music.playback.PlayerUiState
 import com.nava.music.ui.components.BassReactiveArtwork
@@ -85,13 +86,6 @@ fun NowPlayingSheet(
     val track = state.currentTrack ?: return
     val palette = LocalNavaPalette.current
     val isFavorite = track.id in state.favorites
-
-    val positionMs by positionFlow.collectAsState()
-    val progress = if (state.durationMs > 0L) {
-        (positionMs.toFloat() / state.durationMs.toFloat()).coerceIn(0f, 1f)
-    } else {
-        0f
-    }
 
     val playCorner by animateDpAsState(
         targetValue = if (state.isPlaying) 22.dp else 36.dp,
@@ -260,29 +254,14 @@ fun NowPlayingSheet(
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                WavyProgressBar(
-                    progress = progress,
+                NowPlayingProgress(
+                    positionFlow = positionFlow,
+                    durationMs = state.durationMs,
                     isPlaying = state.isPlaying,
                     energyFlow = energyFlow,
                     palette = palette,
-                    onSeekFraction = { frac -> onSeekTo((frac * state.durationMs).toLong()) }
+                    onSeekTo = onSeekTo
                 )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(
-                        text = formatDuration(positionMs),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = palette.onBackgroundMuted
-                    )
-                    Text(
-                        text = formatDuration(state.durationMs),
-                        style = MaterialTheme.typography.labelMedium,
-                        color = palette.onBackgroundMuted
-                    )
-                }
 
                 Spacer(modifier = Modifier.height(12.dp))
 
@@ -423,5 +402,50 @@ fun NowPlayingSheet(
                 Spacer(modifier = Modifier.height(6.dp))
             }
         }
+    }
+}
+
+/**
+ * Position ticks at 4Hz; keeping the collector in this leaf means only the progress bar and the
+ * two time labels recompose on a tick, not the whole Now Playing sheet.
+ */
+@Composable
+private fun NowPlayingProgress(
+    positionFlow: StateFlow<Long>,
+    durationMs: Long,
+    isPlaying: Boolean,
+    energyFlow: StateFlow<AudioEnergy>,
+    palette: DynamicPalette,
+    onSeekTo: (Long) -> Unit
+) {
+    val positionMs by positionFlow.collectAsState()
+    val progress = if (durationMs > 0L) {
+        (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
+    } else {
+        0f
+    }
+
+    WavyProgressBar(
+        progress = progress,
+        isPlaying = isPlaying,
+        energyFlow = energyFlow,
+        palette = palette,
+        onSeekFraction = { frac -> onSeekTo((frac * durationMs).toLong()) }
+    )
+
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Text(
+            text = formatDuration(positionMs),
+            style = MaterialTheme.typography.labelMedium,
+            color = palette.onBackgroundMuted
+        )
+        Text(
+            text = formatDuration(durationMs),
+            style = MaterialTheme.typography.labelMedium,
+            color = palette.onBackgroundMuted
+        )
     }
 }

@@ -12,8 +12,8 @@ android {
         applicationId = "com.nava.music"
         minSdk = 26
         targetSdk = 35
-        versionCode = 7
-        versionName = "2.3.0"
+        versionCode = 8
+        versionName = "2.3.1"
 
         vectorDrawables {
             useSupportLibrary = true
@@ -73,6 +73,8 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.8.7")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("androidx.activity:activity-compose:1.9.3")
+    // Installs the baseline profile (src/main/baseline-prof.txt) on devices at install/update time
+    implementation("androidx.profileinstaller:profileinstaller:1.4.1")
 
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-graphics")

@@ -31,7 +31,7 @@ import kotlin.math.abs
 
 @Composable
 fun TickWaveformScrubber(
-    positionMs: Long,
+    positionFlow: StateFlow<Long>,
     durationMs: Long,
     isPlaying: Boolean,
     energyFlow: StateFlow<AudioEnergy>,
@@ -39,7 +39,10 @@ fun TickWaveformScrubber(
     onSeekFraction: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val energy by energyFlow.collectAsState()
+    // Energy is read only inside the Canvas draw lambda (no recomposition at audio rate);
+    // position ticks at 4Hz and only recomposes this small composable, not the whole controls column.
+    val energyState = energyFlow.collectAsState()
+    val positionMs by positionFlow.collectAsState()
     val progress = if (durationMs > 0L) {
         (positionMs.toFloat() / durationMs.toFloat()).coerceIn(0f, 1f)
     } else {
@@ -94,7 +97,7 @@ fun TickWaveformScrubber(
             val barW = ((size.width - gap * (tickCount - 1)) / tickCount).coerceAtLeast(1.8.dp.toPx())
             val centerY = size.height / 2f
             val activeIdx = (displayFraction * (tickCount - 1)).toInt().coerceIn(0, tickCount - 1)
-            val bassPulse = if (isPlaying) energy.beatPulse else 0f
+            val bassPulse = if (isPlaying) energyState.value.beatPulse else 0f
 
             for (i in 0 until tickCount) {
                 val x = i * (barW + gap)

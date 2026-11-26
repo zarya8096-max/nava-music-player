@@ -26,6 +26,7 @@ import com.nava.music.data.Track
 import com.nava.music.data.VinylAtmosphere
 import com.nava.music.data.VisualizerStyle
 import com.nava.music.ui.theme.DynamicThemeEngine
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -34,6 +35,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 data class LyricsUiState(
     val isLoading: Boolean = false,
@@ -96,6 +98,11 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     private var positionTickerJob: Job? = null
     private var paletteJob: Job? = null
     private var lyricsJob: Job? = null
+    private var cachedLyricsJob: Job? = null
+    private var playJob: Job? = null
+
+    @Volatile
+    private var uiForeground: Boolean = true
 
     init {
         connectMediaController()
@@ -177,6 +184,9 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
     }
 
     private fun syncFromController(controller: MediaController) {
+        // A tap-to-play request is still building its MediaItems: the controller index belongs to the
+        // OLD queue, so syncing now would briefly show the wrong track. Events after setMediaItems re-sync.
+        if (playJob?.isActive == true) return
         val queue = _uiState.value.queue
         val idx = controller.currentMediaItemIndex
         val matchedTrack = queue.getOrNull(idx)
@@ -196,14 +206,31 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
 
         if (matchedTrack != null && matchedTrack.id != prevTrackId) {
             updateDynamicSeed(matchedTrack)
-            val cached = settingsRepository.loadCachedLyrics(matchedTrack.cacheKey)
-            _uiState.update {
-                it.copy(
-                    lyricsState = LyricsUiState(
-                        payload = cached,
-                        showTranslation = true
-                    )
-                )
+            applyCachedLyrics(matchedTrack, showTranslation = true)
+        }
+    }
+
+    /** Resets lyrics instantly, then restores the on-disk cache without touching the main thread. */
+    private fun applyCachedLyrics(track: Track, showTranslation: Boolean) {
+        cachedLyricsJob?.cancel()
+        _uiState.update { it.copy(lyricsState = LyricsUiState(showTranslation = showTranslation)) }
+        cachedLyricsJob = viewModelScope.launch {
+            val cached = withContext(Dispatchers.IO) {
+                settingsRepository.loadCachedLyrics(track.cacheKey)
+            }
+            if (cached != null) {
+                _uiState.update { state ->
+                    if (state.currentTrack?.id == track.id && state.lyricsState.payload == null) {
+                        state.copy(
+                            lyricsState = state.lyricsState.copy(
+                                payload = cached,
+                                showTranslation = showTranslation
+                            )
+                        )
+                    } else {
+                        state
+                    }
+                }
             }
         }
     }
@@ -213,7 +240,7 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         positionTickerJob = viewModelScope.launch {
             while (isActive) {
                 val controller = mediaController
-                if (controller != null && controller.isPlaying) {
+                if (uiForeground && controller != null && controller.isPlaying) {
                     val pos = controller.currentPosition.coerceAtLeast(0L)
                     _playbackPositionMs.value = pos
                     val dur = controller.duration
@@ -221,8 +248,17 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
                         _uiState.update { it.copy(durationMs = dur) }
                     }
                 }
-                delay(250L)
+                // No UI on screen (screen off / app in background) -> nothing to update, wake rarely
+                delay(if (uiForeground) 250L else 1500L)
             }
+        }
+    }
+
+    /** Called by the UI lifecycle so the position ticker can stop waking the CPU in the background. */
+    fun setUiForeground(foreground: Boolean) {
+        uiForeground = foreground
+        if (foreground) {
+            mediaController?.let { _playbackPositionMs.value = it.currentPosition.coerceAtLeast(0L) }
         }
     }
 
@@ -259,21 +295,6 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
         val targetQueue = if (fromList.isNotEmpty()) fromList else listOf(track)
         val index = targetQueue.indexOfFirst { it.id == track.id }.coerceAtLeast(0)
 
-        val mediaItems = targetQueue.map { item ->
-            MediaItem.Builder()
-                .setMediaId(item.id.toString())
-                .setUri(item.contentUri)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(item.title)
-                        .setArtist(item.artist)
-                        .setAlbumTitle(item.album)
-                        .setArtworkUri(item.albumArtUri)
-                        .build()
-                )
-                .build()
-        }
-
         _playbackPositionMs.value = 0L
         _uiState.update {
             it.copy(
@@ -285,13 +306,32 @@ class MusicPlayerViewModel(application: Application) : AndroidViewModel(applicat
             )
         }
         updateDynamicSeed(track)
+        applyCachedLyrics(track, showTranslation = true)
 
-        val cached = settingsRepository.loadCachedLyrics(track.cacheKey)
-        _uiState.update { it.copy(lyricsState = LyricsUiState(payload = cached)) }
-
-        controller.setMediaItems(mediaItems, index, 0L)
-        controller.prepare()
-        controller.play()
+        // The UI above is already updated; build the (potentially thousands of) MediaItems on a
+        // background thread and only hop back to main for the actual controller calls.
+        playJob?.cancel()
+        playJob = viewModelScope.launch {
+            val mediaItems = withContext(Dispatchers.Default) {
+                targetQueue.map { item ->
+                    MediaItem.Builder()
+                        .setMediaId(item.id.toString())
+                        .setUri(item.contentUri)
+                        .setMediaMetadata(
+                            MediaMetadata.Builder()
+                                .setTitle(item.title)
+                                .setArtist(item.artist)
+                                .setAlbumTitle(item.album)
+                                .setArtworkUri(item.albumArtUri)
+                                .build()
+                        )
+                        .build()
+                }
+            }
+            controller.setMediaItems(mediaItems, index, 0L)
+            controller.prepare()
+            controller.play()
+        }
     }
 
     fun togglePlayPause() {

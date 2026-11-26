@@ -13,6 +13,8 @@ import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -42,28 +44,30 @@ fun WavyProgressBar(
     onSeekFraction: (Float) -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val energy by energyFlow.collectAsState()
+    val energyState = energyFlow.collectAsState()
     var isDragging by remember { mutableStateOf(false) }
     var dragFraction by remember { mutableFloatStateOf(progress) }
     val displayFraction = if (isDragging) dragFraction else progress.coerceIn(0f, 1f)
 
-    val wavePhase = if (isPlaying) {
-        val infinite = rememberInfiniteTransition(label = "waveShift")
-        val p by infinite.animateFloat(
-            initialValue = 0f,
-            targetValue = (2f * PI).toFloat(),
-            animationSpec = infiniteRepeatable(
-                animation = tween(durationMillis = 1500, easing = LinearEasing),
-                repeatMode = RepeatMode.Restart
-            ),
-            label = "wavePhase"
-        )
-        p
-    } else {
-        0f
+    // Phase lives in a State that is only read in the draw lambda; the frame clock only runs
+    // while playing, so a paused player schedules no frames at all.
+    val wavePhaseState = remember { mutableFloatStateOf(0f) }
+    LaunchedEffect(isPlaying) {
+        if (!isPlaying) return@LaunchedEffect
+        val twoPi = (2f * PI).toFloat()
+        var lastNanos = 0L
+        while (true) {
+            withFrameNanos { now ->
+                if (lastNanos != 0L) {
+                    val dt = (now - lastNanos) / 1_000_000_000f
+                    wavePhaseState.floatValue = (wavePhaseState.floatValue + dt * twoPi / 1.5f) % twoPi
+                }
+                lastNanos = now
+            }
+        }
     }
 
-    val waveHeightFactor by animateFloatAsState(
+    val waveHeightFactorState = animateFloatAsState(
         targetValue = if (isPlaying) 1f else 0f,
         animationSpec = tween(durationMillis = 320),
         label = "waveFlatten"
@@ -99,7 +103,9 @@ fun WavyProgressBar(
     ) {
         val midY = size.height / 2f
         val thumbX = (size.width * displayFraction).coerceIn(6.dp.toPx(), size.width - 6.dp.toPx())
-        val bassAmp = if (isPlaying) energy.midBass else 0f
+        val bassAmp = if (isPlaying) energyState.value.midBass else 0f
+        val wavePhase = wavePhaseState.floatValue
+        val waveHeightFactor = waveHeightFactorState.value
 
         // Remaining track: a ruler of fine ticks instead of a flat bar
         val tickGap = 7.dp.toPx()
